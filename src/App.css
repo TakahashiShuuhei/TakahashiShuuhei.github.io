@@ -103,17 +103,6 @@ section p {
   position: relative;
 }
 
-.contact:before {
-  content: 'NETWORK_CONNECTION_ESTABLISHED';
-  position: absolute;
-  top: -1.5rem;
-  left: 0;
-  font-size: 0.65em;
-  color: #ddd;
-  letter-spacing: 0.1em;
-  font-weight: 300;
-}
-
 .contact p {
   margin: 0;
   padding: 1rem 0;
