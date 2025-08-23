@@ -99,6 +99,58 @@ section p {
   font-size: 0.6em;
 }
 
+.apps ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.apps li {
+  margin-bottom: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.apps li:last-child {
+  border-bottom: none;
+}
+
+.apps a {
+  color: #666;
+  text-decoration: none;
+  font-size: 0.9em;
+  letter-spacing: 0.02em;
+  position: relative;
+  padding-left: 1.5rem;
+}
+
+.apps a:before {
+  content: '▶';
+  position: absolute;
+  left: 0;
+  color: #ccc;
+  font-size: 0.7em;
+  top: 0.1em;
+}
+
+.apps a:hover {
+  color: #333;
+}
+
+.apps a:hover:before {
+  color: #999;
+}
+
+.app-description {
+  font-size: 0.8em;
+  color: #aaa;
+  font-weight: 300;
+  letter-spacing: 0.02em;
+}
+
 .contact {
   position: relative;
 }

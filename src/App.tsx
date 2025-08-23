@@ -31,6 +31,16 @@ function App() {
           </ul>
         </section>
         
+        <section className="apps">
+          <h2>Apps</h2>
+          <ul>
+            <li>
+              <a href="/apps/demo-app">Demo App</a>
+              <span className="app-description">デモのアプリ</span>
+            </li>
+          </ul>
+        </section>
+        
         <section className="contact">
           <h2>Contact</h2>
           <p>GitHub: <a href="https://github.com/TakahashiShuuhei" target="_blank" rel="noopener noreferrer">TakahashiShuuhei</a></p>
