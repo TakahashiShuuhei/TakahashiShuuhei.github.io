@@ -35,7 +35,7 @@ function App() {
           <h2>Apps</h2>
           <ul>
             <li>
-              <a href="/apps/demo-app">Demo App</a>
+              <a href="#/apps/demo-app">Demo App</a>
               <span className="app-description">デモのアプリ</span>
             </li>
           </ul>
