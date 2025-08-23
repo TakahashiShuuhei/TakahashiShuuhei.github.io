@@ -1,77 +1,158 @@
 #root {
-  max-width: 1280px;
+  max-width: 600px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 8rem 4rem;
+  min-height: 100vh;
 }
 
 header {
-  text-align: center;
-  margin-bottom: 3rem;
+  margin-bottom: 8rem;
 }
 
 header h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-  margin-bottom: 0.5rem;
+  font-size: 1.8em;
+  line-height: 1.2;
+  margin-bottom: 1rem;
+  font-weight: 200;
+  color: #333;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 header p {
-  font-size: 1.2em;
-  color: #888;
+  font-size: 0.85em;
+  color: #999;
+  letter-spacing: 0.05em;
+  margin-bottom: 0;
 }
 
 main {
-  max-width: 800px;
-  margin: 0 auto;
+  margin: 0;
 }
 
 section {
-  margin-bottom: 2rem;
-  padding: 1.5rem;
-  border-radius: 8px;
-  background-color: rgba(255, 255, 255, 0.1);
+  margin-bottom: 6rem;
+  padding: 0;
+  position: relative;
+}
+
+section:before {
+  content: '';
+  position: absolute;
+  left: -2rem;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(to bottom, transparent, #ddd 20%, #ddd 80%, transparent);
 }
 
 section h2 {
-  margin-bottom: 1rem;
-  color: #646cff;
+  font-size: 0.75em;
+  margin-bottom: 2rem;
+  color: #aaa;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  position: relative;
+}
+
+section h2:before {
+  content: '>';
+  position: absolute;
+  left: -2.5rem;
+  color: #ccc;
+  font-weight: 300;
+}
+
+section p {
+  font-size: 0.9em;
+  line-height: 1.6;
+  color: #666;
+  margin-bottom: 1.5rem;
 }
 
 .skills ul {
   list-style-type: none;
   padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
 }
 
 .skills li {
-  background-color: #646cff;
-  color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  font-size: 0.9em;
+  font-size: 0.8em;
+  color: #999;
+  padding: 0.8rem 0;
+  border: 1px solid #eee;
+  text-align: center;
+  letter-spacing: 0.05em;
+  position: relative;
+  background: linear-gradient(135deg, transparent 0%, rgba(0,0,0,0.02) 100%);
+}
+
+.skills li:before {
+  content: '█';
+  position: absolute;
+  left: 0.8rem;
+  color: #ddd;
+  font-size: 0.6em;
+}
+
+.contact {
+  position: relative;
+}
+
+.contact:before {
+  content: 'NETWORK_CONNECTION_ESTABLISHED';
+  position: absolute;
+  top: -1.5rem;
+  left: 0;
+  font-size: 0.65em;
+  color: #ddd;
+  letter-spacing: 0.1em;
+  font-weight: 300;
+}
+
+.contact p {
+  margin: 0;
+  padding: 1rem 0;
+  border-top: 1px solid #eee;
+  border-bottom: 1px solid #eee;
 }
 
 .contact a {
-  color: #646cff;
+  color: #999;
   text-decoration: none;
+  font-family: inherit;
 }
 
 .contact a:hover {
-  text-decoration: underline;
+  color: #333;
 }
 
-@media (prefers-color-scheme: light) {
+@media (max-width: 768px) {
+  #root {
+    padding: 4rem 2rem;
+  }
+  
+  header {
+    margin-bottom: 4rem;
+  }
+  
   section {
-    background-color: rgba(0, 0, 0, 0.05);
+    margin-bottom: 4rem;
   }
   
-  .skills li {
-    background-color: #535bf2;
+  section:before {
+    left: -1rem;
   }
   
-  .contact a {
-    color: #747bff;
+  section h2:before {
+    left: -1.5rem;
+  }
+  
+  .skills ul {
+    grid-template-columns: 1fr;
   }
 }
