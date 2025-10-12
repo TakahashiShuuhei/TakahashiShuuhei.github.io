@@ -1,0 +1,221 @@
+export class MIDIInputManager {
+    constructor() {
+        this.midiAccess = null;
+        this.connectedInputs = [];
+        this.noteOnCallbacks = [];
+        this.noteOffCallbacks = [];
+        this.isConnected = false;
+        console.log('MIDIInputManager initialized');
+    }
+    async requestAccess() {
+        try {
+            // Web MIDI APIの利用可能性をチェック
+            if (!navigator.requestMIDIAccess) {
+                console.warn('Web MIDI API is not supported in this browser');
+                return false;
+            }
+            // MIDI アクセスを要求
+            this.midiAccess = await navigator.requestMIDIAccess();
+            console.log('MIDI access granted');
+            // 接続状態の変化を監視
+            this.midiAccess.onstatechange = (event) => {
+                this.handleStateChange(event);
+            };
+            // 既存の入力デバイスを検出
+            this.detectInputDevices();
+            return true;
+        }
+        catch (error) {
+            console.error('Failed to request MIDI access:', error);
+            return false;
+        }
+    }
+    getAvailableDevices() {
+        if (!this.midiAccess) {
+            return [];
+        }
+        const inputs = [];
+        this.midiAccess.inputs.forEach((input) => {
+            inputs.push(input);
+        });
+        return inputs;
+    }
+    onNoteOn(callback) {
+        this.noteOnCallbacks.push(callback);
+    }
+    onNoteOff(callback) {
+        this.noteOffCallbacks.push(callback);
+    }
+    convertNoteToFrequency(note) {
+        // Tone.jsが利用可能な場合は使用、そうでなければ計算で求める
+        if (window.Tone && window.Tone.Frequency) {
+            return window.Tone.Frequency(note, 'midi').toFrequency();
+        }
+        else {
+            // A4 (MIDI note 69) = 440Hz を基準に計算
+            return 440 * Math.pow(2, (note - 69) / 12);
+        }
+    }
+    convertNoteToNoteName(note) {
+        // Tone.jsが利用可能な場合は使用、そうでなければ計算で求める
+        if (window.Tone && window.Tone.Frequency) {
+            return window.Tone.Frequency(note, 'midi').toNote();
+        }
+        else {
+            const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+            const octave = Math.floor(note / 12) - 1;
+            const noteName = noteNames[note % 12];
+            return `${noteName}${octave}`;
+        }
+    }
+    syncWithTransport() {
+        // Tone.js Transportとの同期を確保
+        if (window.Tone && window.Tone.Transport) {
+            if (window.Tone.Transport.state !== 'started') {
+                console.log('Starting Tone.js Transport for MIDI sync');
+                window.Tone.Transport.start();
+            }
+        }
+        else {
+            console.log('Tone.js not available, skipping transport sync');
+        }
+    }
+    getTransportTime() {
+        // Tone.js Transport の現在時刻を取得
+        if (window.Tone && window.Tone.Transport) {
+            return window.Tone.Transport.seconds;
+        }
+        else {
+            return performance.now() / 1000; // フォールバック
+        }
+    }
+    convertMidiTimeToTransportTime(midiTimestamp) {
+        // MIDIタイムスタンプをTone.js Transport時間に変換
+        if (window.Tone && window.Tone.context) {
+            const performanceNow = performance.now();
+            const audioContextTime = window.Tone.context.currentTime;
+            const timeDiff = (midiTimestamp - performanceNow) / 1000; // ミリ秒を秒に変換
+            return audioContextTime + timeDiff;
+        }
+        else {
+            return midiTimestamp / 1000; // フォールバック
+        }
+    }
+    disconnect() {
+        // 全ての入力デバイスからイベントリスナーを削除
+        this.connectedInputs.forEach(input => {
+            input.onmidimessage = null;
+        });
+        this.connectedInputs = [];
+        this.noteOnCallbacks = [];
+        this.noteOffCallbacks = [];
+        this.isConnected = false;
+        console.log('MIDI input manager disconnected');
+    }
+    isDeviceConnected() {
+        return this.isConnected && this.connectedInputs.length > 0;
+    }
+    detectInputDevices() {
+        if (!this.midiAccess)
+            return;
+        this.connectedInputs = [];
+        this.midiAccess.inputs.forEach((input) => {
+            console.log(`MIDI input detected: ${input.name} (${input.manufacturer})`);
+            this.connectToInput(input);
+        });
+        this.isConnected = this.connectedInputs.length > 0;
+    }
+    connectToInput(input) {
+        // 既に接続済みの場合はスキップ
+        if (this.connectedInputs.includes(input)) {
+            return;
+        }
+        // MIDIメッセージのイベントリスナーを設定
+        input.onmidimessage = (event) => {
+            this.handleMidiMessage(event);
+        };
+        this.connectedInputs.push(input);
+        console.log(`Connected to MIDI input: ${input.name}`);
+    }
+    handleMidiMessage(event) {
+        const data = event.data;
+        if (!data || data.length < 3) {
+            return;
+        }
+        const command = data[0] >> 4;
+        const channel = data[0] & 0xf;
+        const note = data[1];
+        const velocity = data[2];
+        // Tone.jsの現在時刻を取得（利用可能な場合）
+        const toneTime = window.Tone && window.Tone.now ? window.Tone.now() : performance.now() / 1000;
+        switch (command) {
+            case 0x9: // Note On
+                if (velocity > 0) {
+                    console.log(`Note ON: ${note}, velocity: ${velocity}, channel: ${channel}`);
+                    this.triggerNoteOnCallbacks(note, velocity, toneTime);
+                }
+                else {
+                    // velocity が 0 の場合は Note Off として扱う
+                    console.log(`Note OFF (via velocity 0): ${note}, channel: ${channel}`);
+                    this.triggerNoteOffCallbacks(note, toneTime);
+                }
+                break;
+            case 0x8: // Note Off
+                console.log(`Note OFF: ${note}, channel: ${channel}`);
+                this.triggerNoteOffCallbacks(note, toneTime);
+                break;
+            case 0xB: // Control Change
+                console.log(`Control Change: controller ${note}, value: ${velocity}, channel: ${channel}`);
+                // 必要に応じてコントロールチェンジの処理を追加
+                break;
+            default:
+                // その他のMIDIメッセージは無視
+                break;
+        }
+    }
+    handleStateChange(event) {
+        const port = event.port;
+        if (!port) {
+            return;
+        }
+        console.log(`MIDI port ${port.name} ${port.state}`);
+        if (port.type === 'input') {
+            if (port.state === 'connected') {
+                this.connectToInput(port);
+            }
+            else if (port.state === 'disconnected') {
+                this.disconnectFromInput(port);
+            }
+        }
+        this.isConnected = this.connectedInputs.length > 0;
+    }
+    disconnectFromInput(input) {
+        const index = this.connectedInputs.indexOf(input);
+        if (index > -1) {
+            input.onmidimessage = null;
+            this.connectedInputs.splice(index, 1);
+            console.log(`Disconnected from MIDI input: ${input.name}`);
+        }
+    }
+    triggerNoteOnCallbacks(note, velocity, toneTime) {
+        this.noteOnCallbacks.forEach(callback => {
+            try {
+                callback(note, velocity, toneTime);
+            }
+            catch (error) {
+                console.error('Error in note on callback:', error);
+            }
+        });
+    }
+    triggerNoteOffCallbacks(note, toneTime) {
+        this.noteOffCallbacks.forEach(callback => {
+            try {
+                callback(note, toneTime);
+            }
+            catch (error) {
+                console.error('Error in note off callback:', error);
+            }
+        });
+    }
+}
+//# sourceMappingURL=MIDIInputManager.js.map
