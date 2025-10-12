@@ -38,6 +38,10 @@ function App() {
               <a href="#/apps/demo-app">Demo App</a>
               <span className="app-description">デモのアプリ</span>
             </li>
+            <li>
+              <a href="#/apps/piano-practice">Piano Practice App</a>
+              <span className="app-description">ピアノ練習支援アプリ</span>
+            </li>
           </ul>
         </section>
         

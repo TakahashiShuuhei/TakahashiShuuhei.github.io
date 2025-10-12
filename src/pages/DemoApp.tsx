@@ -9,7 +9,7 @@ function DemoApp() {
           <h1>Demo App</h1>
           <p>Sample Application</p>
         </header>
-        
+
         <main>
           <section>
             <h2>Description</h2>
@@ -18,7 +18,7 @@ function DemoApp() {
               実際のプロジェクトでは、ここに詳細な説明や技術スタック、
               開発の背景などを記載します。
             </p>
-            
+
             <div style={{ marginTop: '2rem' }}>
               <p>
                 <strong>Tech Stack:</strong> React, TypeScript, Vite
@@ -28,7 +28,7 @@ function DemoApp() {
               </p>
             </div>
           </section>
-          
+
           <section>
             <h2>Links</h2>
             <p>
@@ -42,7 +42,7 @@ function DemoApp() {
               </a>
             </p>
           </section>
-          
+
           <section>
             <Link to="/" style={{ color: '#666', textDecoration: 'none', fontSize: '0.9em' }}>
               ← Back to Home
