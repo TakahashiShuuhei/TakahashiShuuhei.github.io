@@ -33726,6 +33726,10 @@
         await this.loadInitialContent();
         this.isInitialized = true;
         console.log("Piano Practice App initialized successfully");
+        const startBtn = document.getElementById("startBtn");
+        if (startBtn) {
+          startBtn.disabled = false;
+        }
       } catch (error) {
         console.error("Failed to initialize app:", error);
         this.showError("\u30A2\u30D7\u30EA\u30B1\u30FC\u30B7\u30E7\u30F3\u306E\u521D\u671F\u5316\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002");
@@ -33943,7 +33947,7 @@
       }
       const startBtn = document.getElementById("startBtn");
       if (startBtn) {
-        startBtn.disabled = !connected;
+        startBtn.disabled = false;
       }
     }
     updateGameState(state) {
