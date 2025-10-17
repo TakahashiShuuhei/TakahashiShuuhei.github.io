@@ -32177,13 +32177,299 @@
     }
   };
 
+  // src/utils/KeyboardLayoutCalculator.ts
+  var KeyboardLayoutCalculator = class {
+    constructor() {
+      this.config = {
+        whiteKeys: [0, 2, 4, 5, 7, 9, 11],
+        // C, D, E, F, G, A, B
+        blackKeys: [1, 3, 6, 8, 10],
+        // C#, D#, F#, G#, A#
+        midiRange: { min: 21, max: 108 },
+        // A0 to C8 (88 keys)
+        totalWhiteKeys: 52
+        // 88鍵盤の白鍵数
+      };
+    }
+    /**
+     * キャンバスサイズから鍵盤レイアウトを計算
+     * @param canvasWidth キャンバスの幅
+     * @param canvasHeight キャンバスの高さ
+     * @param keyboardHeightRatio 鍵盤エリアの高さ比率（デフォルト0.2 = 20%）
+     * @returns 鍵盤のレイアウト情報
+     */
+    calculateLayout(canvasWidth, canvasHeight, keyboardHeightRatio = 0.2) {
+      const keyboardHeight = canvasHeight * keyboardHeightRatio;
+      const whiteKeyWidth = canvasWidth / this.config.totalWhiteKeys;
+      const blackKeyWidth = whiteKeyWidth * 0.6;
+      const whiteKeyHeight = keyboardHeight;
+      const blackKeyHeight = keyboardHeight * 0.6;
+      return {
+        whiteKeyWidth,
+        blackKeyWidth,
+        whiteKeyHeight,
+        blackKeyHeight
+      };
+    }
+    /**
+     * 音程（MIDIノート番号）が黒鍵かどうかを判定
+     * @param pitch MIDIノート番号
+     * @returns 黒鍵の場合true
+     */
+    isBlackKey(pitch) {
+      const noteInOctave = pitch % 12;
+      return this.config.blackKeys.includes(noteInOctave);
+    }
+    /**
+     * 音程（MIDIノート番号）が白鍵かどうかを判定
+     * @param pitch MIDIノート番号
+     * @returns 白鍵の場合true
+     */
+    isWhiteKey(pitch) {
+      const noteInOctave = pitch % 12;
+      return this.config.whiteKeys.includes(noteInOctave);
+    }
+    /**
+     * 音程（MIDIノート番号）に基づいてノートのX座標を計算
+     * @param pitch MIDIノート番号
+     * @param layout 鍵盤レイアウト
+     * @returns X座標（ノートの中央位置）、範囲外の場合は-1
+     */
+    getNoteXPosition(pitch, layout) {
+      if (pitch < this.config.midiRange.min || pitch > this.config.midiRange.max) {
+        return -1;
+      }
+      const noteInOctave = pitch % 12;
+      let whiteKeyIndex = 0;
+      for (let midiNote = this.config.midiRange.min; midiNote <= pitch; midiNote++) {
+        const currentNoteInOctave = midiNote % 12;
+        if (this.config.whiteKeys.includes(currentNoteInOctave)) {
+          whiteKeyIndex++;
+        }
+        if (midiNote === pitch) {
+          break;
+        }
+      }
+      if (this.config.whiteKeys.includes(noteInOctave)) {
+        return (whiteKeyIndex - 1) * layout.whiteKeyWidth + layout.whiteKeyWidth / 2;
+      } else {
+        const x = (whiteKeyIndex - 1) * layout.whiteKeyWidth + layout.whiteKeyWidth - layout.blackKeyWidth / 2;
+        return x + layout.blackKeyWidth / 2;
+      }
+    }
+    /**
+     * 白鍵のX座標を計算
+     * @param whiteKeyIndex 白鍵のインデックス（0始まり）
+     * @param layout 鍵盤レイアウト
+     * @returns X座標
+     */
+    getWhiteKeyX(whiteKeyIndex, layout) {
+      return whiteKeyIndex * layout.whiteKeyWidth;
+    }
+    /**
+     * 黒鍵のX座標を計算
+     * @param whiteKeyIndex 直前の白鍵のインデックス
+     * @param layout 鍵盤レイアウト
+     * @returns X座標
+     */
+    getBlackKeyX(whiteKeyIndex, layout) {
+      return (whiteKeyIndex - 1) * layout.whiteKeyWidth + layout.whiteKeyWidth - layout.blackKeyWidth / 2;
+    }
+    /**
+     * 指定範囲のMIDIノート番号に対して、白鍵と黒鍵の情報を取得
+     * @param layout 鍵盤レイアウト
+     * @returns 白鍵と黒鍵の配列
+     */
+    getKeyPositions(layout) {
+      const whiteKeys = [];
+      const blackKeys = [];
+      let whiteKeyIndex = 0;
+      for (let midiNote = this.config.midiRange.min; midiNote <= this.config.midiRange.max; midiNote++) {
+        const noteInOctave = midiNote % 12;
+        if (this.config.whiteKeys.includes(noteInOctave)) {
+          whiteKeys.push({
+            pitch: midiNote,
+            x: this.getWhiteKeyX(whiteKeyIndex, layout)
+          });
+          whiteKeyIndex++;
+        } else if (this.config.blackKeys.includes(noteInOctave)) {
+          blackKeys.push({
+            pitch: midiNote,
+            x: this.getBlackKeyX(whiteKeyIndex, layout)
+          });
+        }
+      }
+      return { whiteKeys, blackKeys };
+    }
+    /**
+     * 設定を取得
+     */
+    getConfig() {
+      return this.config;
+    }
+    /**
+     * 白鍵の総数を取得
+     */
+    getTotalWhiteKeys() {
+      return this.config.totalWhiteKeys;
+    }
+    /**
+     * MIDIノート番号の範囲を取得
+     */
+    getMidiRange() {
+      return this.config.midiRange;
+    }
+  };
+
+  // src/utils/NotePositionCalculator.ts
+  var NotePositionCalculator = class {
+    constructor() {
+      // ノート表示の定数
+      this.SHOW_AHEAD_TIME = 2e3;
+      // ノートを2秒前から表示
+      this.HIDE_AFTER_TIME = 1e3;
+      // ノート終了後1秒間表示
+      // ノート高さ計算の定数
+      this.BASE_DURATION = 500;
+      // 基準duration（四分音符）
+      this.MIN_HEIGHT = 30;
+      // 最小高さ
+      this.MAX_HEIGHT = 300;
+      // 最大高さ（音符の長さを視覚的に表現するため増加）
+      this.MAX_DURATION_RATIO = 4;
+    }
+    // 最大4倍まで
+    /**
+     * ノートが表示される時刻を計算
+     * @param noteStartTime ノート開始時刻
+     * @returns 表示開始時刻
+     */
+    getShowTime(noteStartTime) {
+      return noteStartTime - this.SHOW_AHEAD_TIME;
+    }
+    /**
+     * ノートが非表示になる時刻を計算
+     * @param note ノート情報
+     * @returns 非表示時刻
+     */
+    getHideTime(note) {
+      return note.startTime + note.duration + this.HIDE_AFTER_TIME;
+    }
+    /**
+     * ノートが現在表示範囲内かどうかを判定
+     * @param currentTime 現在時刻
+     * @param note ノート情報
+     * @returns 表示範囲内の場合true
+     */
+    isNoteVisible(currentTime, note) {
+      const showTime = this.getShowTime(note.startTime);
+      const hideTime = this.getHideTime(note);
+      return currentTime >= showTime && currentTime <= hideTime;
+    }
+    /**
+     * ノートのY座標を計算（上から下に流れる）
+     * @param currentTime 現在時刻
+     * @param noteStartTime ノート開始時刻
+     * @param noteAreaHeight ノート表示エリアの高さ
+     * @param noteHeight ノートの高さ
+     * @returns Y座標（ノートの上端）
+     */
+    calculateNoteY(currentTime, noteStartTime, noteAreaHeight, noteHeight) {
+      const showTime = this.getShowTime(noteStartTime);
+      const progress = Math.max(0, (currentTime - showTime) / this.SHOW_AHEAD_TIME);
+      return progress * noteAreaHeight - noteHeight;
+    }
+    /**
+     * ノートの高さを計算（durationに応じて変化）
+     * @param noteDuration ノートのduration（ミリ秒）
+     * @returns ノートの高さ（ピクセル）
+     * @deprecated 代わりにcalculateNoteHeightFromPositionsを使用してください
+     */
+    calculateNoteHeight(noteDuration) {
+      if (noteDuration <= 0) {
+        return this.MIN_HEIGHT;
+      }
+      const durationRatio = Math.min(noteDuration / this.BASE_DURATION, this.MAX_DURATION_RATIO);
+      if (durationRatio < 1) {
+        return this.MIN_HEIGHT;
+      }
+      const height = this.MIN_HEIGHT + (durationRatio - 1) * 100;
+      return Math.min(this.MAX_HEIGHT, height);
+    }
+    /**
+     * ノートの開始位置と終了位置のY座標から高さを計算
+     * @param currentTime 現在時刻
+     * @param note ノート情報
+     * @param noteAreaHeight ノート表示エリアの高さ
+     * @returns { y: number, height: number } ノートの上端Y座標と高さ
+     */
+    calculateNoteHeightFromPositions(currentTime, note, noteAreaHeight) {
+      const noteStartTime = note.startTime;
+      const noteEndTime = note.startTime + note.duration;
+      const showTimeStart = this.getShowTime(noteStartTime);
+      const showTimeEnd = this.getShowTime(noteEndTime);
+      const progressStart = Math.max(0, (currentTime - showTimeStart) / this.SHOW_AHEAD_TIME);
+      const yBottom = progressStart * noteAreaHeight;
+      const progressEnd = Math.max(0, (currentTime - showTimeEnd) / this.SHOW_AHEAD_TIME);
+      const yTop = progressEnd * noteAreaHeight;
+      const height = Math.max(this.MIN_HEIGHT, yBottom - yTop);
+      return {
+        y: yTop,
+        height
+      };
+    }
+    /**
+     * ノートが画面外（下）に出たかどうかを判定
+     * @param noteY ノートのY座標（上端）
+     * @param canvasHeight キャンバスの高さ
+     * @returns 画面外の場合true
+     */
+    isNoteOffScreen(noteY, canvasHeight) {
+      return noteY > canvasHeight;
+    }
+    /**
+     * ノートの表示進行度を計算（0.0 ～ 1.0以上）
+     * @param currentTime 現在時刻
+     * @param noteStartTime ノート開始時刻
+     * @returns 進行度（0.0 = 表示開始、1.0 = タイミングライン到達）
+     */
+    calculateProgress(currentTime, noteStartTime) {
+      const showTime = this.getShowTime(noteStartTime);
+      return Math.max(0, (currentTime - showTime) / this.SHOW_AHEAD_TIME);
+    }
+    /**
+     * ノートがアクティブ（演奏タイミング）かどうかを判定
+     * @param currentTime 現在時刻
+     * @param noteStartTime ノート開始時刻
+     * @returns アクティブの場合true
+     */
+    isNoteActive(currentTime, noteStartTime) {
+      return currentTime >= noteStartTime;
+    }
+    /**
+     * ノート表示の定数を取得
+     */
+    getConstants() {
+      return {
+        showAheadTime: this.SHOW_AHEAD_TIME,
+        hideAfterTime: this.HIDE_AFTER_TIME,
+        baseDuration: this.BASE_DURATION,
+        minHeight: this.MIN_HEIGHT,
+        maxHeight: this.MAX_HEIGHT
+      };
+    }
+  };
+
   // src/components/UIRenderer.ts
   var UIRenderer = class {
     constructor() {
       this.canvas = null;
       this.ctx = null;
-      this.animationId = null;
       this.theme = "dark";
+      // 鍵盤レイアウト計算機
+      this.keyboardLayoutCalculator = new KeyboardLayoutCalculator();
+      // ノート位置計算機
+      this.notePositionCalculator = new NotePositionCalculator();
       // 描画設定
       this.colors = {
         light: {
@@ -32221,16 +32507,27 @@
           chord: "#9c27b0"
         }
       };
-      // 鍵盤レイアウト設定（88鍵盤対応）
+      // メモのカラープリセット（おしゃれな配色）
+      this.memoColorPresets = {
+        default: { bg: "rgba(30, 30, 30, 0.85)", text: "#4dabf7" },
+        // デフォルトのブルー
+        blue: { bg: "rgba(37, 99, 235, 0.15)", text: "#60a5fa" },
+        // クールなブルー
+        green: { bg: "rgba(34, 197, 94, 0.15)", text: "#4ade80" },
+        // フレッシュなグリーン
+        purple: { bg: "rgba(168, 85, 247, 0.15)", text: "#c084fc" },
+        // エレガントなパープル
+        orange: { bg: "rgba(249, 115, 22, 0.15)", text: "#fb923c" },
+        // 暖かいオレンジ
+        pink: { bg: "rgba(236, 72, 153, 0.15)", text: "#f472b6" },
+        // かわいいピンク
+        red: { bg: "rgba(239, 68, 68, 0.15)", text: "#f87171" },
+        // アクセントレッド
+        cyan: { bg: "rgba(6, 182, 212, 0.15)", text: "#22d3ee" }
+        // 爽やかなシアン
+      };
+      // 鍵盤レイアウト（計算結果を保持）
       this.keyboardLayout = {
-        whiteKeys: [0, 2, 4, 5, 7, 9, 11],
-        // C, D, E, F, G, A, B
-        blackKeys: [1, 3, 6, 8, 10],
-        // C#, D#, F#, G#, A#
-        // 88鍵盤: A0(21) から C8(108) まで
-        // A0=21, A#0=22, B0=23, C1=24, ..., C8=108
-        midiRange: { min: 21, max: 108 },
-        // A0 to C8 (88 keys)
         whiteKeyWidth: 0,
         blackKeyWidth: 0,
         whiteKeyHeight: 0,
@@ -32278,23 +32575,21 @@
       if (!this.canvas) return;
       const width = this.canvas.width / window.devicePixelRatio;
       const height = this.canvas.height / window.devicePixelRatio;
-      const keyboardHeight = height * 0.2;
-      const totalWhiteKeys = 52;
-      this.keyboardLayout.whiteKeyWidth = width / totalWhiteKeys;
-      this.keyboardLayout.blackKeyWidth = this.keyboardLayout.whiteKeyWidth * 0.6;
-      this.keyboardLayout.whiteKeyHeight = keyboardHeight;
-      this.keyboardLayout.blackKeyHeight = keyboardHeight * 0.6;
+      this.keyboardLayout = this.keyboardLayoutCalculator.calculateLayout(width, height);
     }
     /**
      * ゲーム状態とノート情報を基に画面を描画
      */
-    render(gameState, notes) {
+    render(gameState, notes, memos) {
       if (!this.ctx || !this.canvas) return;
       const currentColors = this.colors[this.theme];
       this.clearCanvas();
       this.drawBackground();
       this.drawGameInfo(gameState);
       this.drawNotes(notes, gameState.currentTime);
+      if (memos && memos.length > 0) {
+        this.drawMemos(memos, gameState.currentTime);
+      }
       if (gameState.phase === "countdown" /* COUNTDOWN */ && gameState.countdownValue !== void 0) {
         this.drawCountdown(gameState.countdownValue);
       }
@@ -32363,15 +32658,12 @@
      */
     drawNotes(notes, currentTime) {
       if (!this.ctx || !this.canvas) return;
-      const width = this.canvas.width / window.devicePixelRatio;
       const height = this.canvas.height / window.devicePixelRatio;
       const keyboardHeight = height * 0.2;
       const noteAreaHeight = height - keyboardHeight;
       this.drawTimingLine(height - keyboardHeight);
       notes.forEach((note) => {
-        const showTime = note.startTime - 2e3;
-        const hideTime = note.startTime + note.duration + 1e3;
-        if (currentTime >= showTime && currentTime <= hideTime) {
+        if (this.notePositionCalculator.isNoteVisible(currentTime, note)) {
           this.drawSingleNote(note, currentTime, noteAreaHeight);
         }
       });
@@ -32393,28 +32685,105 @@
       this.ctx.setLineDash([]);
     }
     /**
+     * メモを描画（ノートと同じように流れる）
+     */
+    drawMemos(memos, currentTime) {
+      if (!this.ctx || !this.canvas) return;
+      const ctx = this.ctx;
+      const width = this.canvas.width / window.devicePixelRatio;
+      const height = this.canvas.height / window.devicePixelRatio;
+      const keyboardHeight = height * 0.2;
+      const noteAreaHeight = height - keyboardHeight;
+      const currentColors = this.colors[this.theme];
+      memos.forEach((memo) => {
+        const showTime = memo.startTime - 2e3;
+        const hideTime = memo.startTime + 500;
+        if (currentTime >= showTime && currentTime <= hideTime) {
+          const progress = Math.max(0, (currentTime - showTime) / 2e3);
+          const y = progress * noteAreaHeight;
+          if (y >= noteAreaHeight || currentTime > memo.startTime) {
+            return;
+          }
+          ctx.strokeStyle = currentColors.secondary;
+          ctx.lineWidth = 1;
+          ctx.setLineDash([5, 3]);
+          ctx.globalAlpha = 0.5;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 1;
+          let x;
+          const padding = 20;
+          switch (memo.align) {
+            case "left":
+              x = padding;
+              ctx.textAlign = "left";
+              break;
+            case "right":
+              x = width - padding;
+              ctx.textAlign = "right";
+              break;
+            case "center":
+            default:
+              x = width / 2;
+              ctx.textAlign = "center";
+              break;
+          }
+          const colorPreset = this.memoColorPresets[memo.color] || this.memoColorPresets.default;
+          ctx.fillStyle = colorPreset.text;
+          ctx.font = "bold 20px Arial";
+          ctx.textBaseline = "alphabetic";
+          const textMetrics = ctx.measureText(memo.text);
+          const textWidth = textMetrics.width;
+          const textAscent = textMetrics.actualBoundingBoxAscent || 20;
+          const textDescent = textMetrics.actualBoundingBoxDescent || 5;
+          const textHeight = textAscent + textDescent;
+          const bgPadding = 8;
+          const bgHeight = textHeight + bgPadding * 2;
+          const bgY = y - bgHeight;
+          const textY = bgY + bgPadding + textAscent;
+          let bgX;
+          switch (memo.align) {
+            case "left":
+              bgX = x - bgPadding;
+              break;
+            case "right":
+              bgX = x - textWidth - bgPadding;
+              break;
+            case "center":
+            default:
+              bgX = x - textWidth / 2 - bgPadding;
+              break;
+          }
+          ctx.fillStyle = colorPreset.bg;
+          this.drawRoundedRect(bgX, bgY, textWidth + bgPadding * 2, bgHeight, 8);
+          ctx.fillStyle = colorPreset.text;
+          ctx.fillText(memo.text, x, textY);
+        }
+      });
+    }
+    /**
      * 単音ノートを描画
      */
     drawSingleNote(note, currentTime, noteAreaHeight) {
       if (!this.ctx || !this.canvas) return;
       const width = this.canvas.width / window.devicePixelRatio;
-      const isBlackKey = this.isBlackKey(note.pitch);
-      const baseDuration = 500;
-      const minHeight = 30;
-      const maxHeight = 150;
-      const durationRatio = Math.min(note.duration / baseDuration, 4);
-      const noteHeight = Math.max(minHeight, Math.min(maxHeight, minHeight + durationRatio * 40));
-      const showTime = note.startTime - 2e3;
-      const progress = Math.max(0, (currentTime - showTime) / 2e3);
-      const y = progress * noteAreaHeight - noteHeight;
-      const height = this.canvas.height / window.devicePixelRatio;
-      if (y > height) {
+      const { y, height: noteHeight } = this.notePositionCalculator.calculateNoteHeightFromPositions(
+        currentTime,
+        note,
+        noteAreaHeight
+      );
+      const canvasHeight = this.canvas.height / window.devicePixelRatio;
+      if (this.notePositionCalculator.isNoteOffScreen(y, canvasHeight)) {
         return;
       }
       const x = this.getPreciseNoteXPosition(note.pitch, width);
       const noteId = `${note.pitch}-${note.startTime}`;
       const state = this.noteStates.get(noteId) || "pending";
-      this.drawNote(x, y, note, state, currentTime >= note.startTime, noteHeight);
+      const isActive = this.notePositionCalculator.isNoteActive(currentTime, note.startTime);
+      this.drawNote(x, y, note, state, isActive, noteHeight);
     }
     /**
      * 単一のノートを描画
@@ -32474,12 +32843,13 @@
      */
     drawWhiteKeys(keyboardY, keyboardHeight) {
       if (!this.ctx || !this.canvas) return;
+      const ctx = this.ctx;
       const currentColors = this.colors[this.theme];
+      const midiRange = this.keyboardLayoutCalculator.getMidiRange();
       let whiteKeyIndex = 0;
-      for (let midiNote = this.keyboardLayout.midiRange.min; midiNote <= this.keyboardLayout.midiRange.max; midiNote++) {
-        const noteInOctave = midiNote % 12;
-        if (this.keyboardLayout.whiteKeys.includes(noteInOctave)) {
-          const x = whiteKeyIndex * this.keyboardLayout.whiteKeyWidth;
+      for (let midiNote = midiRange.min; midiNote <= midiRange.max; midiNote++) {
+        if (this.keyboardLayoutCalculator.isWhiteKey(midiNote)) {
+          const x = this.keyboardLayoutCalculator.getWhiteKeyX(whiteKeyIndex, this.keyboardLayout);
           const isPressed = this.pressedKeys.has(midiNote);
           const isCurrentTarget = this.currentTargetKeys.has(midiNote);
           let keyColor;
@@ -32490,8 +32860,8 @@
           } else {
             keyColor = currentColors.whiteKey;
           }
-          this.ctx.fillStyle = keyColor;
-          this.ctx.fillRect(x, keyboardY, this.keyboardLayout.whiteKeyWidth, keyboardHeight);
+          ctx.fillStyle = keyColor;
+          ctx.fillRect(x, keyboardY, this.keyboardLayout.whiteKeyWidth, keyboardHeight);
           let strokeColor;
           let lineWidth;
           if (isPressed) {
@@ -32504,9 +32874,9 @@
             strokeColor = currentColors.secondary;
             lineWidth = 1;
           }
-          this.ctx.strokeStyle = strokeColor;
-          this.ctx.lineWidth = lineWidth;
-          this.ctx.strokeRect(x, keyboardY, this.keyboardLayout.whiteKeyWidth, keyboardHeight);
+          ctx.strokeStyle = strokeColor;
+          ctx.lineWidth = lineWidth;
+          ctx.strokeRect(x, keyboardY, this.keyboardLayout.whiteKeyWidth, keyboardHeight);
           whiteKeyIndex++;
         }
       }
@@ -32516,15 +32886,16 @@
      */
     drawBlackKeys(keyboardY, keyboardHeight) {
       if (!this.ctx || !this.canvas) return;
+      const ctx = this.ctx;
       const currentColors = this.colors[this.theme];
+      const midiRange = this.keyboardLayoutCalculator.getMidiRange();
       let whiteKeyIndex = 0;
-      for (let midiNote = this.keyboardLayout.midiRange.min; midiNote <= this.keyboardLayout.midiRange.max; midiNote++) {
-        const noteInOctave = midiNote % 12;
-        if (this.keyboardLayout.whiteKeys.includes(noteInOctave)) {
+      for (let midiNote = midiRange.min; midiNote <= midiRange.max; midiNote++) {
+        if (this.keyboardLayoutCalculator.isWhiteKey(midiNote)) {
           whiteKeyIndex++;
         }
-        if (this.keyboardLayout.blackKeys.includes(noteInOctave)) {
-          const x = (whiteKeyIndex - 1) * this.keyboardLayout.whiteKeyWidth + this.keyboardLayout.whiteKeyWidth - this.keyboardLayout.blackKeyWidth / 2;
+        if (this.keyboardLayoutCalculator.isBlackKey(midiNote)) {
+          const x = this.keyboardLayoutCalculator.getBlackKeyX(whiteKeyIndex, this.keyboardLayout);
           const isPressed = this.pressedKeys.has(midiNote);
           const isCurrentTarget = this.currentTargetKeys.has(midiNote);
           let keyColor;
@@ -32535,8 +32906,8 @@
           } else {
             keyColor = currentColors.blackKey;
           }
-          this.ctx.fillStyle = keyColor;
-          this.ctx.fillRect(x, keyboardY, this.keyboardLayout.blackKeyWidth, this.keyboardLayout.blackKeyHeight);
+          ctx.fillStyle = keyColor;
+          ctx.fillRect(x, keyboardY, this.keyboardLayout.blackKeyWidth, this.keyboardLayout.blackKeyHeight);
           let strokeColor;
           let lineWidth;
           if (isPressed) {
@@ -32549,90 +32920,11 @@
             strokeColor = currentColors.primary;
             lineWidth = 1;
           }
-          this.ctx.strokeStyle = strokeColor;
-          this.ctx.lineWidth = lineWidth;
-          this.ctx.strokeRect(x, keyboardY, this.keyboardLayout.blackKeyWidth, this.keyboardLayout.blackKeyHeight);
+          ctx.strokeStyle = strokeColor;
+          ctx.lineWidth = lineWidth;
+          ctx.strokeRect(x, keyboardY, this.keyboardLayout.blackKeyWidth, this.keyboardLayout.blackKeyHeight);
         }
       }
-    }
-    /**
-     * ノートヒット時の視覚エフェクトを表示
-     */
-    showNoteHit(note, result) {
-      if (!this.ctx || !this.canvas) return;
-      const currentColors = this.colors[this.theme];
-      const width = this.canvas.width / window.devicePixelRatio;
-      const height = this.canvas.height / window.devicePixelRatio;
-      const x = this.getPreciseNoteXPosition(note.pitch, width);
-      const y = height - height * 0.1;
-      const noteId = `${note.pitch}-${note.startTime}`;
-      this.noteStates.set(noteId, result.isCorrect ? "hit" : "missed");
-      let color;
-      switch (result.feedback) {
-        case "perfect":
-          color = currentColors.success;
-          break;
-        case "good":
-          color = currentColors.accent;
-          break;
-        case "miss":
-          color = currentColors.error;
-          break;
-        default:
-          color = currentColors.secondary;
-      }
-      const effectSize = result.feedback === "perfect" ? 40 : result.feedback === "good" ? 30 : 25;
-      this.ctx.fillStyle = color;
-      this.ctx.globalAlpha = 0.8;
-      this.ctx.beginPath();
-      this.ctx.arc(x, y, effectSize, 0, Math.PI * 2);
-      this.ctx.fill();
-      this.ctx.globalAlpha = 1;
-      this.ctx.fillStyle = this.getContrastColor(color);
-      this.ctx.font = "bold 16px Arial";
-      this.ctx.textAlign = "center";
-      this.ctx.fillText(result.feedback.toUpperCase(), x, y + 5);
-      if (result.points > 0) {
-        this.ctx.fillStyle = currentColors.success;
-        this.ctx.font = "12px Arial";
-        this.ctx.fillText(`+${result.points}`, x, y - 25);
-      }
-      setTimeout(() => {
-        this.fadeOutEffect(x, y, color, effectSize);
-      }, 500);
-    }
-    /**
-     * エフェクトのフェードアウト
-     */
-    fadeOutEffect(x, y, color, size) {
-      if (!this.ctx) return;
-      let alpha = 0.8;
-      const fadeInterval = setInterval(() => {
-        if (alpha <= 0) {
-          clearInterval(fadeInterval);
-          return;
-        }
-        this.ctx.globalAlpha = alpha;
-        this.ctx.fillStyle = color;
-        this.ctx.beginPath();
-        this.ctx.arc(x, y, size * (1 + (0.8 - alpha)), 0, Math.PI * 2);
-        this.ctx.fill();
-        this.ctx.globalAlpha = 1;
-        alpha -= 0.1;
-      }, 50);
-    }
-    /**
-     * ノート状態をクリア
-     */
-    clearNoteStates() {
-      this.noteStates.clear();
-    }
-    /**
-     * 特定のノートの状態を設定
-     */
-    setNoteState(note, state) {
-      const noteId = `${note.pitch}-${note.startTime}`;
-      this.noteStates.set(noteId, state);
     }
     /**
      * 鍵盤が押されたことを記録
@@ -32653,25 +32945,7 @@
     /**
      * スコア表示を更新
      */
-    updateScore(score, accuracy) {
-    }
-    /**
-     * メトロノームビートの視覚表示
-     */
-    showMetronome(beat) {
-      if (!this.ctx || !this.canvas) return;
-      const currentColors = this.colors[this.theme];
-      const width = this.canvas.width / window.devicePixelRatio;
-      const x = width - 60;
-      const y = 80;
-      this.ctx.fillStyle = beat === 1 ? currentColors.accent : currentColors.secondary;
-      this.ctx.beginPath();
-      this.ctx.arc(x, y, 15, 0, Math.PI * 2);
-      this.ctx.fill();
-      this.ctx.fillStyle = currentColors.background;
-      this.ctx.font = "12px Arial";
-      this.ctx.textAlign = "center";
-      this.ctx.fillText(beat.toString(), x, y + 4);
+    updateScore(_score, _accuracy) {
     }
     /**
      * テーマを設定
@@ -32680,63 +32954,16 @@
       this.theme = theme;
     }
     /**
-     * アニメーションループを開始
-     */
-    startAnimationLoop() {
-      if (this.animationId !== null) {
-        return;
-      }
-      const animate = () => {
-        this.animationId = requestAnimationFrame(animate);
-      };
-      this.animationId = requestAnimationFrame(animate);
-    }
-    /**
-     * アニメーションループを停止
-     */
-    stopAnimationLoop() {
-      if (this.animationId !== null) {
-        cancelAnimationFrame(this.animationId);
-        this.animationId = null;
-      }
-    }
-    /**
      * ユーティリティ: 音程に基づいてノートのX座標を計算（88鍵盤対応）
      */
-    getPreciseNoteXPosition(pitch, canvasWidth) {
-      if (pitch < this.keyboardLayout.midiRange.min || pitch > this.keyboardLayout.midiRange.max) {
-        return -1;
-      }
-      const noteInOctave = pitch % 12;
-      let whiteKeyIndex = 0;
-      for (let midiNote = this.keyboardLayout.midiRange.min; midiNote <= pitch; midiNote++) {
-        const currentNoteInOctave = midiNote % 12;
-        if (this.keyboardLayout.whiteKeys.includes(currentNoteInOctave)) {
-          whiteKeyIndex++;
-        }
-        if (midiNote === pitch) {
-          break;
-        }
-      }
-      if (this.keyboardLayout.whiteKeys.includes(noteInOctave)) {
-        return (whiteKeyIndex - 1) * this.keyboardLayout.whiteKeyWidth + this.keyboardLayout.whiteKeyWidth / 2;
-      } else {
-        const x = (whiteKeyIndex - 1) * this.keyboardLayout.whiteKeyWidth + this.keyboardLayout.whiteKeyWidth - this.keyboardLayout.blackKeyWidth / 2;
-        return x + this.keyboardLayout.blackKeyWidth / 2;
-      }
-    }
-    /**
-     * ユーティリティ: 音程に基づいてノートのX座標を計算（後方互換性）
-     */
-    getNoteXPosition(pitch, canvasWidth) {
-      return this.getPreciseNoteXPosition(pitch, canvasWidth);
+    getPreciseNoteXPosition(pitch, _canvasWidth) {
+      return this.keyboardLayoutCalculator.getNoteXPosition(pitch, this.keyboardLayout);
     }
     /**
      * ユーティリティ: 黒鍵かどうかを判定
      */
     isBlackKey(pitch) {
-      const noteInOctave = pitch % 12;
-      return this.keyboardLayout.blackKeys.includes(noteInOctave);
+      return this.keyboardLayoutCalculator.isBlackKey(pitch);
     }
     /**
      * ユーティリティ: コントラスト色を取得
@@ -32816,7 +33043,6 @@
      * リソースのクリーンアップ
      */
     destroy() {
-      this.stopAnimationLoop();
       if (this.canvas) {
         window.removeEventListener("resize", () => this.resizeCanvas());
       }
@@ -32871,10 +33097,12 @@
      * @returns 時間ベースのノート
      */
     convertNote(musicalNote) {
+      console.log(musicalNote);
+      const duration = musicalNote.timing.duration ?? 1;
       const result = {
         pitch: musicalNote.pitch,
         startTime: this.beatsToMs(musicalNote.timing.beat),
-        duration: this.beatsToMs(musicalNote.timing.duration),
+        duration: this.beatsToMs(duration),
         velocity: musicalNote.velocity
       };
       return result;
@@ -32910,6 +33138,27 @@
      */
     convertToMusicalNotes(notes) {
       return notes.map((note) => this.convertToMusicalNote(note));
+    }
+    /**
+     * SongMemoを時間ベースのMemoに変換
+     * @param songMemo 拍ベースのメモ
+     * @returns 時間ベースのメモ
+     */
+    convertMemo(songMemo) {
+      return {
+        startTime: this.beatsToMs(songMemo.timing.beat),
+        text: songMemo.text,
+        align: songMemo.align || "center",
+        color: songMemo.color || "default"
+      };
+    }
+    /**
+     * SongMemo配列を時間ベースのMemo配列に変換
+     * @param songMemos 拍ベースのメモ配列
+     * @returns 時間ベースのメモ配列
+     */
+    convertMemos(songMemos) {
+      return songMemos.map((memo) => this.convertMemo(memo));
     }
     /**
      * 指定された拍数での四分音符の長さ（ミリ秒）を取得
@@ -33343,18 +33592,23 @@
   // src/utils/ScoreEvaluator.ts
   var ScoreEvaluator = class {
     constructor() {
-      this.hitNoteIndices = /* @__PURE__ */ new Set();
-      // 正解したノートのindex（現在のループ）
-      this.activeNoteIndices = /* @__PURE__ */ new Set();
-      // 現在アクティブ（演奏対象）なノートのindex（現在のループ）
-      this.hitWindow = 100;
-      // ±100msec
-      // ループ対応：累積スコア管理
-      this.totalCorrectCount = 0;
-      // 全ループ通しての正解数
-      this.totalNoteCount = 0;
+      // プレイセッション管理
+      this.currentPlaySessionId = 0;
+      this.currentSessionStartTime = void 0;
+      // 現在のセッションの開始時刻 (msec)
+      this.hitNotes = /* @__PURE__ */ new Map();
+      // noteId -> Set<sessionId>
+      this.activeNotes = /* @__PURE__ */ new Map();
+      // noteId -> Set<sessionId>
+      this.hitWindow = 200;
     }
-    // 全ループ通しての総ノート数
+    // ±200msec
+    /**
+     * ノートの一意なIDを生成
+     */
+    getNoteId(note) {
+      return `${note.pitch}-${note.startTime}`;
+    }
     /**
      * キーボード入力時の評価
      * @param inputNote 入力されたMIDIノート番号
@@ -33363,13 +33617,20 @@
      * @returns ヒットしたかどうか
      */
     evaluateInput(inputNote, currentTime, notes) {
-      const candidates = notes.map((note, index) => ({ note, index })).filter(
-        ({ note, index }) => !this.hitNoteIndices.has(index) && note.pitch === inputNote && Math.abs(note.startTime - currentTime) <= this.hitWindow
-      ).sort((a, b) => a.index - b.index);
+      const candidates = notes.map((note, index) => ({ note, index })).filter(({ note, index }) => {
+        const noteId = this.getNoteId(note);
+        const sessions = this.hitNotes.get(noteId);
+        const isAlreadyHit = sessions?.has(this.currentPlaySessionId) ?? false;
+        return !isAlreadyHit && note.pitch === inputNote && Math.abs(note.startTime - currentTime) <= this.hitWindow;
+      }).sort((a, b) => a.note.startTime - b.note.startTime);
       if (candidates.length > 0) {
-        const hitIndex = candidates[0].index;
-        this.hitNoteIndices.add(hitIndex);
-        return { isHit: true, hitNoteIndex: hitIndex };
+        const { note, index } = candidates[0];
+        const noteId = this.getNoteId(note);
+        if (!this.hitNotes.has(noteId)) {
+          this.hitNotes.set(noteId, /* @__PURE__ */ new Set());
+        }
+        this.hitNotes.get(noteId).add(this.currentPlaySessionId);
+        return { isHit: true, hitNoteIndex: index };
       }
       return { isHit: false };
     }
@@ -33380,27 +33641,42 @@
      * @param notes 楽譜のノート配列
      */
     updateActiveNotes(currentTime, notes) {
-      notes.forEach((note, index) => {
-        if (currentTime >= note.startTime && !this.activeNoteIndices.has(index)) {
-          this.activeNoteIndices.add(index);
+      notes.forEach((note) => {
+        const noteId = this.getNoteId(note);
+        const sessions = this.activeNotes.get(noteId);
+        const isAlreadyActive = sessions?.has(this.currentPlaySessionId) ?? false;
+        if (currentTime >= note.startTime && !isAlreadyActive) {
+          if (this.currentSessionStartTime !== void 0 && note.startTime < this.currentSessionStartTime) {
+            return;
+          }
+          if (!this.activeNotes.has(noteId)) {
+            this.activeNotes.set(noteId, /* @__PURE__ */ new Set());
+          }
+          this.activeNotes.get(noteId).add(this.currentPlaySessionId);
         }
       });
     }
     /**
-     * 現在のスコアを取得（累積スコア + 現在のループ）
+     * 現在のスコアを取得（全セッション通しての累積）
      * @returns スコア情報
      */
     getScore() {
-      const currentCorrect = this.hitNoteIndices.size;
-      const currentTotal = this.activeNoteIndices.size;
-      const totalCorrect = this.totalCorrectCount + currentCorrect;
-      const totalNotes = this.totalNoteCount + currentTotal;
+      let totalCorrect = 0;
+      for (const sessions of this.hitNotes.values()) {
+        totalCorrect += sessions.size;
+      }
+      let totalNotes = 0;
+      for (const sessions of this.activeNotes.values()) {
+        totalNotes += sessions.size;
+      }
       return {
         correct: totalCorrect,
         total: totalNotes,
         accuracy: totalNotes > 0 ? totalCorrect / totalNotes : 1,
-        hitIndices: Array.from(this.hitNoteIndices).sort((a, b) => a - b),
-        activeIndices: Array.from(this.activeNoteIndices).sort((a, b) => a - b)
+        hitIndices: [],
+        // 非推奨：IDベースに移行したため空
+        activeIndices: []
+        // 非推奨：IDベースに移行したため空
       };
     }
     /**
@@ -33408,59 +33684,77 @@
      * アクティブになったが、まだヒットしていないノート
      */
     getMissedNotes(currentTime, notes) {
-      const missedIndices = [];
-      this.activeNoteIndices.forEach((index) => {
-        const note = notes[index];
-        if (note && !this.hitNoteIndices.has(index)) {
+      const missedNoteIds = [];
+      notes.forEach((note) => {
+        const noteId = this.getNoteId(note);
+        const activeSessions = this.activeNotes.get(noteId);
+        const hitSessions = this.hitNotes.get(noteId);
+        const isActive = activeSessions?.has(this.currentPlaySessionId) ?? false;
+        const isHit = hitSessions?.has(this.currentPlaySessionId) ?? false;
+        if (isActive && !isHit) {
           const noteEndTime = note.startTime + note.duration;
           if (currentTime > noteEndTime + this.hitWindow) {
-            missedIndices.push(index);
+            missedNoteIds.push(noteId);
           }
         }
       });
-      return missedIndices;
+      return missedNoteIds;
     }
     /**
      * 現在ヒット可能なノートを取得（デバッグ用）
      */
     getHitableNotes(inputNote, currentTime, notes) {
-      return notes.map((note, index) => ({ note, index })).filter(
-        ({ note, index }) => !this.hitNoteIndices.has(index) && note.pitch === inputNote && Math.abs(note.startTime - currentTime) <= this.hitWindow
-      ).map(({ note, index }) => ({
-        index,
+      return notes.filter((note) => {
+        const noteId = this.getNoteId(note);
+        const sessions = this.hitNotes.get(noteId);
+        const isAlreadyHit = sessions?.has(this.currentPlaySessionId) ?? false;
+        return !isAlreadyHit && note.pitch === inputNote && Math.abs(note.startTime - currentTime) <= this.hitWindow;
+      }).map((note) => ({
+        noteId: this.getNoteId(note),
         note,
         timingDiff: note.startTime - currentTime
-      })).sort((a, b) => a.index - b.index);
+      })).sort((a, b) => a.note.startTime - b.note.startTime);
     }
     /**
-     * 現在のループのスコアを累積に追加（ループ終了時に呼び出し）
+     * 新しいプレイセッションを開始（シークや部分リピート時に使用）
+     * @param startTime セッションの開始時刻（ミリ秒）。省略時は制限なし
      */
-    finalizeCurrentLoop() {
-      this.totalCorrectCount += this.hitNoteIndices.size;
-      this.totalNoteCount += this.activeNoteIndices.size;
-      this.hitNoteIndices.clear();
-      this.activeNoteIndices.clear();
+    startNewPlaySession(startTime) {
+      this.currentPlaySessionId++;
+      this.currentSessionStartTime = startTime;
     }
     /**
-     * スコア評価をリセット（新しいセッション開始時）
+     * スコア評価を完全リセット（新しいゲーム開始時）
      */
     reset() {
-      this.hitNoteIndices.clear();
-      this.activeNoteIndices.clear();
-      this.totalCorrectCount = 0;
-      this.totalNoteCount = 0;
+      this.hitNotes.clear();
+      this.activeNotes.clear();
+      this.currentPlaySessionId = 0;
+      this.currentSessionStartTime = void 0;
     }
     /**
      * デバッグ情報を出力
      */
     debugInfo() {
       const score = this.getScore();
+      let currentCorrect = 0;
+      for (const sessions of this.hitNotes.values()) {
+        if (sessions.has(this.currentPlaySessionId)) {
+          currentCorrect++;
+        }
+      }
+      let currentTotal = 0;
+      for (const sessions of this.activeNotes.values()) {
+        if (sessions.has(this.currentPlaySessionId)) {
+          currentTotal++;
+        }
+      }
       console.log("=== ScoreEvaluator Debug Info ===");
-      console.log(`Current loop - Hit notes: [${score.hitIndices.join(", ")}]`);
-      console.log(`Current loop - Active notes: [${score.activeIndices.join(", ")}]`);
+      console.log(`Current session ID: ${this.currentPlaySessionId}`);
+      console.log(`Current session - Hit notes: ${currentCorrect}`);
+      console.log(`Current session - Active notes: ${currentTotal}`);
       console.log(`Total accumulated score: ${score.correct}/${score.total} (${(score.accuracy * 100).toFixed(1)}%)`);
-      console.log(`Accumulated from previous loops: ${this.totalCorrectCount}/${this.totalNoteCount}`);
-      console.log(`Current loop: ${this.hitNoteIndices.size}/${this.activeNoteIndices.size}`);
+      console.log(`Total tracked notes: ${this.hitNotes.size} unique notes hit, ${this.activeNotes.size} unique notes active`);
     }
   };
 
@@ -33491,7 +33785,8 @@
           try {
             const jsonString = event.target?.result;
             const jsonData = JSON.parse(jsonString);
-            resolve(this.processSongData(jsonData));
+            const result = this.processSongData(jsonData);
+            resolve({ notes: result.notes, memos: result.memos });
           } catch (error) {
             reject(new Error("\u30D5\u30A1\u30A4\u30EB\u306E\u8AAD\u307F\u8FBC\u307F\u306B\u5931\u6557\u3057\u307E\u3057\u305F"));
           }
@@ -33513,7 +33808,8 @@
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         const jsonData = await response.json();
-        return this.processSongData(jsonData);
+        const result = this.processSongData(jsonData);
+        return { notes: result.notes, memos: result.memos };
       } catch (error) {
         console.error("Failed to load song from URL:", error);
         throw new Error(`\u697D\u66F2\u306E\u8AAD\u307F\u8FBC\u307F\u306B\u5931\u6557\u3057\u307E\u3057\u305F: ${error instanceof Error ? error.message : "Unknown error"}`);
@@ -33539,7 +33835,8 @@
       try {
         const jsonString = this.decodeBase64UTF8(base64Data);
         const jsonData = JSON.parse(jsonString);
-        return this.processSongData(jsonData);
+        const result = this.processSongData(jsonData);
+        return { notes: result.notes, memos: result.memos };
       } catch (error) {
         console.error("Failed to decode base64 data:", error);
         throw new Error("Base64\u30C7\u30FC\u30BF\u306E\u89E3\u6790\u306B\u5931\u6557\u3057\u307E\u3057\u305F");
@@ -33569,7 +33866,9 @@
       if (songData.notes.length === 0) {
         console.warn("\u697D\u66F2\u30C7\u30FC\u30BF\u306B\u30CE\u30FC\u30C8\u304C\u542B\u307E\u308C\u3066\u3044\u307E\u305B\u3093\u3002\u7A7A\u306E\u697D\u66F2\u3068\u3057\u3066\u8AAD\u307F\u8FBC\u307F\u307E\u3059\u3002");
       }
-      return this.convertToMusicalNotes(songData);
+      const notes = this.convertToMusicalNotes(songData);
+      const memos = songData.memos || [];
+      return { notes, memos };
     }
     /**
      * SongDataのバリデーション
@@ -33592,11 +33891,20 @@
       data.notes.forEach((note, index) => {
         this.validateSongNote(note, index);
       });
+      if (data.memos !== void 0) {
+        if (!Array.isArray(data.memos)) {
+          throw new Error("memos\u306F\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        }
+        data.memos.forEach((memo, index) => {
+          this.validateSongMemo(memo, index);
+        });
+      }
       return {
         title: data.title,
         bpm: data.bpm || 120,
         // デフォルト値
-        notes: data.notes
+        notes: data.notes,
+        memos: data.memos
       };
     }
     /**
@@ -33624,6 +33932,29 @@
       if (note.velocity !== void 0) {
         if (typeof note.velocity !== "number" || note.velocity < 0 || note.velocity > 127) {
           throw new Error(`${notePrefix}: velocity\u306F0-127\u306E\u7BC4\u56F2\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044`);
+        }
+      }
+    }
+    /**
+     * SongMemoのバリデーション
+     */
+    validateSongMemo(memo, index) {
+      const memoPrefix = `\u30E1\u30E2${index + 1}`;
+      if (!memo || typeof memo !== "object") {
+        throw new Error(`${memoPrefix}: \u30E1\u30E2\u30C7\u30FC\u30BF\u304C\u6B63\u3057\u304F\u3042\u308A\u307E\u305B\u3093`);
+      }
+      if (!memo.timing || typeof memo.timing !== "object") {
+        throw new Error(`${memoPrefix}: timing\u304C\u5FC5\u8981\u3067\u3059`);
+      }
+      if (typeof memo.timing.beat !== "number" || memo.timing.beat < 0) {
+        throw new Error(`${memoPrefix}: beat\u306F0\u4EE5\u4E0A\u306E\u6570\u5024\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044`);
+      }
+      if (typeof memo.text !== "string") {
+        throw new Error(`${memoPrefix}: text\u306F\u6587\u5B57\u5217\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044`);
+      }
+      if (memo.align !== void 0) {
+        if (!["left", "center", "right"].includes(memo.align)) {
+          throw new Error(`${memoPrefix}: align\u306F'left'\u3001'center'\u3001'right'\u306E\u3044\u305A\u308C\u304B\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044`);
         }
       }
     }
@@ -33692,6 +34023,142 @@
     }
   };
 
+  // src/utils/TimeFormatter.ts
+  var TimeFormatter = class {
+    /**
+     * ミリ秒を "M:SS" 形式にフォーマット
+     * @param milliseconds ミリ秒
+     * @returns "M:SS" 形式の文字列（例: "0:00", "1:23", "12:45"）
+     */
+    static formatTime(milliseconds) {
+      const totalSeconds = Math.floor(milliseconds / 1e3);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+    }
+    /**
+     * ミリ秒を "MM:SS" 形式にフォーマット（分も2桁表示）
+     * @param milliseconds ミリ秒
+     * @returns "MM:SS" 形式の文字列（例: "00:00", "01:23", "12:45"）
+     */
+    static formatTimeWithPadding(milliseconds) {
+      const totalSeconds = Math.floor(milliseconds / 1e3);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+    }
+    /**
+     * ミリ秒を秒数に変換（小数点以下1桁）
+     * @param milliseconds ミリ秒
+     * @returns 秒数（例: 1234 → 1.2）
+     */
+    static toSeconds(milliseconds) {
+      return Math.round(milliseconds / 100) / 10;
+    }
+    /**
+     * 秒数をミリ秒に変換
+     * @param seconds 秒数
+     * @returns ミリ秒
+     */
+    static toMilliseconds(seconds) {
+      return Math.round(seconds * 1e3);
+    }
+  };
+
+  // src/utils/KeyboardNoteMapper.ts
+  var KeyboardNoteMapper = class {
+    /**
+     * キーボードキーからMIDIノート番号を取得
+     * @param key キーボードキー（小文字または大文字）
+     * @returns MIDIノート番号（マッピングが存在しない場合はundefined）
+     */
+    static getMidiNote(key) {
+      return this.keyToNote[key.toLowerCase()];
+    }
+    /**
+     * キーがマッピングされているか確認
+     * @param key キーボードキー
+     * @returns マッピングが存在する場合true
+     */
+    static hasMapping(key) {
+      return key.toLowerCase() in this.keyToNote;
+    }
+    /**
+     * すべてのマッピングを取得
+     * @returns キーとMIDIノート番号のマッピング
+     */
+    static getAllMappings() {
+      return { ...this.keyToNote };
+    }
+    /**
+     * MIDIノート番号からキーボードキーを取得
+     * @param midiNote MIDIノート番号
+     * @returns キーボードキーの配列（複数のキーが同じノートにマッピングされている可能性があるため）
+     */
+    static getKeysForNote(midiNote) {
+      return Object.entries(this.keyToNote).filter(([_, note]) => note === midiNote).map(([key, _]) => key);
+    }
+    /**
+     * マッピングされているキーの一覧を取得
+     * @returns キーの配列
+     */
+    static getAllKeys() {
+      return Object.keys(this.keyToNote);
+    }
+    /**
+     * マッピングされているノートの一覧を取得（重複なし）
+     * @returns MIDIノート番号の配列（昇順）
+     */
+    static getAllNotes() {
+      const notes = Array.from(new Set(Object.values(this.keyToNote)));
+      return notes.sort((a, b) => a - b);
+    }
+    /**
+     * マッピングされているノートの範囲を取得
+     * @returns { min: 最小ノート番号, max: 最大ノート番号 }
+     */
+    static getNoteRange() {
+      const notes = this.getAllNotes();
+      if (notes.length === 0) {
+        throw new Error("No notes mapped");
+      }
+      return {
+        min: notes[0],
+        max: notes[notes.length - 1]
+      };
+    }
+  };
+  // キーボードキーとMIDIノート番号のマッピング
+  // C4 (Middle C) = MIDI note 60 を中心に配置
+  KeyboardNoteMapper.keyToNote = {
+    "a": 60,
+    // C4 (Middle C)
+    "w": 61,
+    // C#4
+    "s": 62,
+    // D4
+    "e": 63,
+    // D#4
+    "d": 64,
+    // E4
+    "f": 65,
+    // F4
+    "t": 66,
+    // F#4
+    "g": 67,
+    // G4
+    "y": 68,
+    // G#4
+    "h": 69,
+    // A4
+    "u": 70,
+    // A#4
+    "j": 71,
+    // B4
+    "k": 72
+    // C5
+  };
+
   // src/app/PianoPracticeApp.ts
   var PianoPracticeApp = class {
     constructor() {
@@ -33713,10 +34180,16 @@
       this.musicalNotes = [];
       // 現在表示中のノート（時間ベース、UIRenderer用）
       this.currentNotes = [];
+      // 音楽的メモ（拍ベース）
+      this.musicalMemos = [];
+      // 現在表示中のメモ（時間ベース、UIRenderer用）
+      this.currentMemos = [];
       // 既に再生したノートを追跡
       this.playedNotes = /* @__PURE__ */ new Set();
-      // シンプルなループ機能
-      this.isLoopEnabled = false;
+      // リピート機能（部分リピートで全曲ループも実現）
+      this.isPartialRepeatEnabled = false;
+      this.repeatStartBeat = null;
+      this.repeatEndBeat = null;
     }
     async initialize() {
       try {
@@ -33774,6 +34247,10 @@
       } else {
         console.error("MIDI connect button not found in setupEventListeners");
       }
+      const fileInput = document.getElementById("fileInput");
+      if (fileInput) {
+        fileInput.addEventListener("change", (event) => this.handleFileLoad(event));
+      }
       const startBtn = document.getElementById("startBtn");
       if (startBtn) {
         startBtn.addEventListener("click", () => this.handleStart());
@@ -33790,13 +34267,15 @@
       document.addEventListener("keydown", (event) => this.handleKeyboardInput(event));
       this.setupBPMControls();
       this.setupVolumeControls();
-      this.setupLoopControls();
+      this.setupSeekBarControls();
+      this.setupPartialRepeatControls();
     }
     async loadInitialContent() {
       try {
-        const musicalNotes = await this.contentLoader.loadFromURL();
-        if (musicalNotes) {
-          this.musicalNotes = musicalNotes;
+        const songData = await this.contentLoader.loadFromURL();
+        if (songData) {
+          this.musicalNotes = songData.notes;
+          this.musicalMemos = songData.memos || [];
           const songBPM = await this.contentLoader.getSongBPM();
           if (songBPM) {
             this.setBPM(songBPM);
@@ -33807,12 +34286,12 @@
           }
           console.log("\u697D\u66F2\u30C7\u30FC\u30BF\u3092\u8AAD\u307F\u8FBC\u307F\u307E\u3057\u305F:", songTitle || "\u7121\u984C", `(BPM: ${songBPM || 120})`);
         } else {
-          this.loadSampleNotes();
+          await this.loadSampleNotes();
           console.log("\u30C7\u30D5\u30A9\u30EB\u30C8\u306E\u30B5\u30F3\u30D7\u30EB\u697D\u66F2\u3092\u4F7F\u7528\u3057\u307E\u3059");
         }
       } catch (error) {
         console.error("\u697D\u66F2\u30C7\u30FC\u30BF\u306E\u8AAD\u307F\u8FBC\u307F\u306B\u5931\u6557:", error);
-        this.loadSampleNotes();
+        await this.loadSampleNotes();
         const errorMessage = error instanceof Error ? error.message : "\u697D\u66F2\u30C7\u30FC\u30BF\u306E\u8AAD\u307F\u8FBC\u307F\u306B\u5931\u6557\u3057\u307E\u3057\u305F";
         this.showError(`${errorMessage} \u30C7\u30D5\u30A9\u30EB\u30C8\u306E\u697D\u66F2\u3092\u4F7F\u7528\u3057\u307E\u3059\u3002`);
       }
@@ -33824,6 +34303,47 @@
       const headerElement = document.querySelector(".header h1");
       if (headerElement) {
         headerElement.textContent = `\u{1F3B9} ${title}`;
+      }
+    }
+    /**
+     * ファイル読み込みを処理
+     */
+    async handleFileLoad(event) {
+      const input = event.target;
+      const file = input.files?.[0];
+      if (!file) {
+        return;
+      }
+      try {
+        const songData = await this.contentLoader.loadFromFile(file);
+        const fileReader = new FileReader();
+        fileReader.onload = (e) => {
+          try {
+            const jsonData = JSON.parse(e.target?.result);
+            if (jsonData.title) {
+              this.updateSongTitle(jsonData.title);
+            }
+            if (jsonData.bpm) {
+              this.setBPM(jsonData.bpm);
+            }
+            console.log("\u697D\u66F2\u30D5\u30A1\u30A4\u30EB\u3092\u8AAD\u307F\u8FBC\u307F\u307E\u3057\u305F:", jsonData.title || "\u7121\u984C", `(BPM: ${jsonData.bpm || 120})`);
+          } catch (error) {
+            console.error("Failed to parse JSON for metadata:", error);
+          }
+        };
+        fileReader.readAsText(file, "utf-8");
+        this.musicalNotes = songData.notes;
+        this.musicalMemos = songData.memos || [];
+        if (this.currentGameState.phase !== "stopped" /* STOPPED */) {
+          this.handleStop();
+        }
+        this.showSuccess(`\u697D\u66F2\u30D5\u30A1\u30A4\u30EB "${file.name}" \u3092\u8AAD\u307F\u8FBC\u307F\u307E\u3057\u305F`);
+      } catch (error) {
+        console.error("Failed to load file:", error);
+        const errorMessage = error instanceof Error ? error.message : "\u30D5\u30A1\u30A4\u30EB\u306E\u8AAD\u307F\u8FBC\u307F\u306B\u5931\u6557\u3057\u307E\u3057\u305F";
+        this.showError(errorMessage);
+      } finally {
+        input.value = "";
       }
     }
     async handleMidiConnect() {
@@ -33877,11 +34397,12 @@
       this.updateGameStateDisplay();
       this.countdownStartTime = Date.now();
       let countdownValue = 4;
+      this.audioFeedbackManager.playCountdownBeep(4);
       const countdownInterval = setInterval(() => {
         const elapsed = Date.now() - this.countdownStartTime;
         const beatDuration2 = 6e4 / this.currentBPM;
         const expectedCount = 4 - Math.floor(elapsed / beatDuration2);
-        if (expectedCount !== countdownValue && expectedCount >= 0) {
+        if (expectedCount !== countdownValue && expectedCount >= 1) {
           countdownValue = expectedCount;
           this.currentGameState.countdownValue = countdownValue;
           this.audioFeedbackManager.playCountdownBeep(countdownValue);
@@ -34018,7 +34539,8 @@
           this.updatePlayingGuide();
           this.checkSongEnd();
         }
-        this.uiRenderer.render(this.currentGameState, this.currentNotes);
+        this.uiRenderer.render(this.currentGameState, this.currentNotes, this.currentMemos);
+        this.updateSeekBarDisplay();
         requestAnimationFrame(render);
       };
       requestAnimationFrame(render);
@@ -34031,35 +34553,15 @@
       this.uiRenderer.updateScore(this.currentGameState.score, this.currentGameState.accuracy);
     }
     handleKeyboardInput(event) {
-      const keyToNote = {
-        "a": 60,
-        // C4
-        "w": 61,
-        // C#4
-        "s": 62,
-        // D4
-        "e": 63,
-        // D#4
-        "d": 64,
-        // E4
-        "f": 65,
-        // F4
-        "t": 66,
-        // F#4
-        "g": 67,
-        // G4
-        "y": 68,
-        // G#4
-        "h": 69,
-        // A4
-        "u": 70,
-        // A#4
-        "j": 71,
-        // B4
-        "k": 72
-        // C5
-      };
-      const note = keyToNote[event.key.toLowerCase()];
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        if (this.currentGameState.phase === "playing" /* PLAYING */ || this.currentGameState.phase === "paused" /* PAUSED */) {
+          event.preventDefault();
+          const direction = event.key === "ArrowLeft" ? -1 : 1;
+          this.seekByBeats(direction);
+          return;
+        }
+      }
+      const note = KeyboardNoteMapper.getMidiNote(event.key);
       if (note !== void 0 && !event.repeat) {
         this.handleNoteOn(note, 100, 0);
         setTimeout(() => {
@@ -34068,66 +34570,82 @@
       }
     }
     /**
-     * テスト用のサンプルノートを読み込み（音楽的タイミングベース）
+     * テスト用のサンプルノートを読み込み（JSONファイルから）
      */
-    loadSampleNotes() {
-      this.musicalNotes = [
-        // 単音のメロディー（4拍子）
-        { pitch: 60, timing: { beat: 0, duration: 1 }, velocity: 80 },
-        // C4: 0拍目
-        { pitch: 62, timing: { beat: 1, duration: 1 }, velocity: 90 },
-        // D4: 1拍目
-        { pitch: 64, timing: { beat: 2, duration: 1 }, velocity: 85 },
-        // E4: 2拍目
-        { pitch: 65, timing: { beat: 3, duration: 1 }, velocity: 75 },
-        // F4: 3拍目
-        // コード（和音）のテスト - Cメジャーコード
-        { pitch: 60, timing: { beat: 4, duration: 2 }, velocity: 80 },
-        // C4
-        { pitch: 64, timing: { beat: 4, duration: 2 }, velocity: 80 },
-        // E4
-        { pitch: 67, timing: { beat: 4, duration: 2 }, velocity: 80 },
-        // G4
-        // 黒鍵のテスト
-        { pitch: 61, timing: { beat: 6, duration: 0.5 }, velocity: 70 },
-        // C#4: 6拍目（八分音符）
-        { pitch: 63, timing: { beat: 6.5, duration: 0.5 }, velocity: 70 },
-        // D#4: 6.5拍目（八分音符）
-        // より複雑なコード - Amコード
-        { pitch: 57, timing: { beat: 8, duration: 3 }, velocity: 85 },
-        // A3
-        { pitch: 60, timing: { beat: 8, duration: 3 }, velocity: 85 },
-        // C4
-        { pitch: 64, timing: { beat: 8, duration: 3 }, velocity: 85 },
-        // E4
-        // 3連符のテスト
-        { pitch: 72, timing: { beat: 12, duration: 1 / 3 }, velocity: 80 },
-        // C5: 12拍目（3連符1つ目）
-        { pitch: 74, timing: { beat: 12 + 1 / 3, duration: 1 / 3 }, velocity: 80 },
-        // D5: 3連符2つ目
-        { pitch: 76, timing: { beat: 12 + 2 / 3, duration: 1 / 3 }, velocity: 80 }
-        // E5: 3連符3つ目
-      ];
+    async loadSampleNotes() {
+      try {
+        const response = await fetch("sample-song.json");
+        if (!response.ok) {
+          throw new Error(`\u30B5\u30F3\u30D7\u30EB\u697D\u66F2\u30D5\u30A1\u30A4\u30EB\u306E\u8AAD\u307F\u8FBC\u307F\u306B\u5931\u6557: ${response.statusText}`);
+        }
+        const blob = await response.blob();
+        const file = new File([blob], "sample-song.json", { type: "application/json" });
+        const songData = await this.contentLoader.loadFromFile(file);
+        this.musicalNotes = songData.notes;
+        this.musicalMemos = songData.memos || [];
+        const jsonText = await blob.text();
+        const jsonData = JSON.parse(jsonText);
+        if (jsonData.bpm) {
+          this.setBPM(jsonData.bpm);
+        }
+        if (jsonData.title) {
+          this.updateSongTitle(jsonData.title);
+        }
+        console.log("\u30B5\u30F3\u30D7\u30EB\u697D\u66F2\u3092\u8AAD\u307F\u8FBC\u307F\u307E\u3057\u305F:", jsonData.title || "\u30B5\u30F3\u30D7\u30EB\u697D\u66F2");
+      } catch (error) {
+        console.error("\u30B5\u30F3\u30D7\u30EB\u697D\u66F2\u306E\u8AAD\u307F\u8FBC\u307F\u306B\u5931\u6557:", error);
+        this.musicalNotes = [
+          { pitch: 60, timing: { beat: 0, duration: 1 }, velocity: 80 },
+          { pitch: 62, timing: { beat: 1, duration: 1 }, velocity: 80 },
+          { pitch: 64, timing: { beat: 2, duration: 1 }, velocity: 80 }
+        ];
+        this.musicalMemos = [];
+        this.updateSongTitle("\u57FA\u672C\u7DF4\u7FD2");
+      }
     }
     /**
      * 音楽的ノートを時間ベースのノートに変換してcurrentNotesを更新
      */
     updateCurrentNotes() {
       const timeBasedNotes = this.beatTimeConverter.convertNotes(this.musicalNotes);
+      console.log("Sample converted notes:", timeBasedNotes.slice(0, 5).map((n) => ({
+        pitch: n.pitch,
+        startTime: n.startTime,
+        duration: n.duration
+      })));
       this.currentNotes = timeBasedNotes.map((note) => ({
         ...note,
         startTime: note.startTime
         // そのまま相対時間として使用
       }));
+      this.updateCurrentMemos();
+    }
+    /**
+     * 音楽的メモを時間ベースのメモに変換してcurrentMemosを更新
+     */
+    updateCurrentMemos() {
+      this.currentMemos = this.beatTimeConverter.convertMemos(this.musicalMemos);
     }
     showError(message) {
       const errorElement = document.getElementById("errorMessage");
       if (errorElement) {
         errorElement.textContent = message;
         errorElement.style.display = "block";
+        errorElement.style.backgroundColor = "#f44336";
         setTimeout(() => {
           errorElement.style.display = "none";
         }, 5e3);
+      }
+    }
+    showSuccess(message) {
+      const errorElement = document.getElementById("errorMessage");
+      if (errorElement) {
+        errorElement.textContent = message;
+        errorElement.style.display = "block";
+        errorElement.style.backgroundColor = "#4caf50";
+        setTimeout(() => {
+          errorElement.style.display = "none";
+        }, 3e3);
       }
     }
     /**
@@ -34154,7 +34672,7 @@
         }
         if (bpmDown) {
           bpmDown.addEventListener("click", () => {
-            const newBPM = Math.max(60, this.currentBPM - 5);
+            const newBPM = Math.max(30, this.currentBPM - 5);
             this.setBPM(newBPM);
             this.updateBPMDisplay(newBPM);
             bpmSlider.value = newBPM.toString();
@@ -34342,41 +34860,231 @@
     checkSongEnd() {
       if (this.currentNotes.length === 0) return;
       const currentTime = this.currentGameState.currentTime;
+      const currentPosition = this.musicalTimeManager.getCurrentMusicalPosition();
+      if (this.isPartialRepeatEnabled && this.repeatStartBeat !== null && this.repeatEndBeat !== null) {
+        if (currentPosition >= this.repeatEndBeat) {
+          this.musicalTimeManager.seekToMusicalPosition(this.repeatStartBeat);
+          const seekedTime = this.musicalTimeManager.getCurrentRealTime();
+          this.scoreEvaluator.startNewPlaySession(seekedTime);
+          this.playedNotes.clear();
+          this.uiRenderer.clearTargetKeys();
+        }
+        return;
+      }
       const lastNote = this.currentNotes[this.currentNotes.length - 1];
       if (!lastNote) return;
       const songEndTime = lastNote.startTime + lastNote.duration;
       if (currentTime >= songEndTime + 1e3) {
-        if (this.isLoopEnabled) {
-          this.startLoop();
-        } else {
-          this.handleStop();
+        this.handleStop();
+      }
+    }
+    /**
+     * シークバーコントロールを設定
+     */
+    setupSeekBarControls() {
+      const seekBar = document.getElementById("seekBar");
+      if (seekBar) {
+        seekBar.addEventListener("input", (event) => {
+          const progress = parseInt(event.target.value) / 1e3;
+          this.handleSeekBarChange(progress);
+        });
+      }
+    }
+    /**
+     * シークバー変更時の処理
+     */
+    handleSeekBarChange(progress) {
+      if (!this.musicalTimeManager.isStarted() || this.currentNotes.length === 0) {
+        return;
+      }
+      const lastNote = this.currentNotes[this.currentNotes.length - 1];
+      if (!lastNote) return;
+      const totalDuration = lastNote.startTime + lastNote.duration;
+      const targetTime = progress * totalDuration;
+      this.musicalTimeManager.seekToRealTime(targetTime);
+      const seekedTime = this.musicalTimeManager.getCurrentRealTime();
+      this.scoreEvaluator.startNewPlaySession(seekedTime);
+      this.playedNotes.clear();
+    }
+    /**
+     * 拍数単位でシーク
+     */
+    seekByBeats(beatOffset) {
+      if (!this.musicalTimeManager.isStarted()) {
+        return;
+      }
+      const currentPosition = this.musicalTimeManager.getCurrentMusicalPosition();
+      const targetPosition = Math.max(0, currentPosition + beatOffset);
+      this.musicalTimeManager.seekToMusicalPosition(targetPosition);
+      const seekedTime = this.musicalTimeManager.getCurrentRealTime();
+      this.scoreEvaluator.startNewPlaySession(seekedTime);
+      this.playedNotes.clear();
+    }
+    /**
+     * シークバーの表示を更新
+     */
+    updateSeekBarDisplay() {
+      if (!this.musicalTimeManager.isStarted() || this.currentNotes.length === 0) {
+        return;
+      }
+      const currentTime = this.currentGameState.currentTime;
+      const lastNote = this.currentNotes[this.currentNotes.length - 1];
+      if (!lastNote) return;
+      const totalDuration = lastNote.startTime + lastNote.duration;
+      const progress = Math.max(0, Math.min(1, currentTime / totalDuration));
+      const seekBar = document.getElementById("seekBar");
+      if (seekBar) {
+        seekBar.value = Math.round(progress * 1e3).toString();
+      }
+      const currentTimeDisplay = document.getElementById("currentTimeDisplay");
+      const totalTimeDisplay = document.getElementById("totalTimeDisplay");
+      if (currentTimeDisplay) {
+        currentTimeDisplay.textContent = TimeFormatter.formatTime(Math.max(0, currentTime));
+      }
+      if (totalTimeDisplay) {
+        totalTimeDisplay.textContent = TimeFormatter.formatTime(totalDuration);
+      }
+      const musicalPositionDisplay = document.getElementById("musicalPositionDisplay");
+      if (musicalPositionDisplay) {
+        const currentPosition = this.musicalTimeManager.getCurrentMusicalPosition();
+        musicalPositionDisplay.textContent = currentPosition.toFixed(1);
+      }
+    }
+    /**
+     * 部分リピートコントロールを設定
+     */
+    setupPartialRepeatControls() {
+      const partialRepeatEnabled = document.getElementById("partialRepeatEnabled");
+      const setPointA = document.getElementById("setPointA");
+      const setPointAToStart = document.getElementById("setPointAToStart");
+      const setPointB = document.getElementById("setPointB");
+      const setPointBToEnd = document.getElementById("setPointBToEnd");
+      const clearRepeatPoints = document.getElementById("clearRepeatPoints");
+      const pointAInput = document.getElementById("pointAInput");
+      const pointBInput = document.getElementById("pointBInput");
+      if (partialRepeatEnabled) {
+        partialRepeatEnabled.addEventListener("change", () => {
+          this.isPartialRepeatEnabled = partialRepeatEnabled.checked;
+        });
+      }
+      if (setPointA) {
+        setPointA.addEventListener("click", () => {
+          this.setRepeatPoint("start");
+        });
+      }
+      if (setPointAToStart) {
+        setPointAToStart.addEventListener("click", () => {
+          this.setRepeatPointToStart();
+        });
+      }
+      if (setPointB) {
+        setPointB.addEventListener("click", () => {
+          this.setRepeatPoint("end");
+        });
+      }
+      if (setPointBToEnd) {
+        setPointBToEnd.addEventListener("click", () => {
+          this.setRepeatPointToEnd();
+        });
+      }
+      if (clearRepeatPoints) {
+        clearRepeatPoints.addEventListener("click", () => {
+          this.clearRepeatPoints();
+        });
+      }
+      if (pointAInput) {
+        pointAInput.addEventListener("change", () => {
+          const value = parseFloat(pointAInput.value);
+          if (!isNaN(value) && value >= 0) {
+            this.repeatStartBeat = value;
+          }
+        });
+      }
+      if (pointBInput) {
+        pointBInput.addEventListener("change", () => {
+          const value = parseFloat(pointBInput.value);
+          if (!isNaN(value) && value >= 0) {
+            this.repeatEndBeat = value;
+          }
+        });
+      }
+    }
+    /**
+     * リピート位置を設定
+     */
+    setRepeatPoint(type) {
+      if (!this.musicalTimeManager.isStarted()) {
+        this.showError("\u518D\u751F\u4E2D\u307E\u305F\u306F\u4E00\u6642\u505C\u6B62\u4E2D\u306E\u307F\u8A2D\u5B9A\u3067\u304D\u307E\u3059");
+        return;
+      }
+      const currentPosition = this.musicalTimeManager.getCurrentMusicalPosition();
+      if (type === "start") {
+        this.repeatStartBeat = currentPosition;
+        const input = document.getElementById("pointAInput");
+        if (input) {
+          input.value = currentPosition.toFixed(1);
+          input.classList.remove("repeat-point-highlight");
+          void input.offsetWidth;
+          input.classList.add("repeat-point-highlight");
+        }
+      } else {
+        this.repeatEndBeat = currentPosition;
+        const input = document.getElementById("pointBInput");
+        if (input) {
+          input.value = currentPosition.toFixed(1);
+          input.classList.remove("repeat-point-highlight");
+          void input.offsetWidth;
+          input.classList.add("repeat-point-highlight");
         }
       }
     }
     /**
-     * ループを開始（カウントダウン→演奏の繰り返し）
+     * 開始位置を楽曲の最初（0拍目）に設定
      */
-    startLoop() {
-      this.scoreEvaluator.finalizeCurrentLoop();
-      this.playedNotes.clear();
-      this.uiRenderer.clearTargetKeys();
-      this.startCountdown();
+    setRepeatPointToStart() {
+      this.repeatStartBeat = 0;
+      const input = document.getElementById("pointAInput");
+      if (input) {
+        input.value = "0.0";
+        input.classList.remove("repeat-point-highlight");
+        void input.offsetWidth;
+        input.classList.add("repeat-point-highlight");
+      }
     }
     /**
-     * ループ練習を有効/無効にする
+     * 終了位置を楽曲の最後に設定
      */
-    setLoopEnabled(enabled) {
-      this.isLoopEnabled = enabled;
+    setRepeatPointToEnd() {
+      if (this.currentNotes.length === 0) {
+        this.showError("\u697D\u66F2\u30C7\u30FC\u30BF\u304C\u8AAD\u307F\u8FBC\u307E\u308C\u3066\u3044\u307E\u305B\u3093");
+        return;
+      }
+      const lastNote = this.currentNotes[this.currentNotes.length - 1];
+      const lastNoteBeat = this.beatTimeConverter.msToBeats(lastNote.startTime + lastNote.duration);
+      this.repeatEndBeat = lastNoteBeat;
+      const input = document.getElementById("pointBInput");
+      if (input) {
+        input.value = lastNoteBeat.toFixed(1);
+        input.classList.remove("repeat-point-highlight");
+        void input.offsetWidth;
+        input.classList.add("repeat-point-highlight");
+      }
     }
     /**
-     * ループ練習コントロールを設定
+     * リピート位置をクリア
      */
-    setupLoopControls() {
-      const loopEnabled = document.getElementById("loopEnabled");
-      if (loopEnabled) {
-        loopEnabled.addEventListener("change", () => {
-          this.setLoopEnabled(loopEnabled.checked);
-        });
+    clearRepeatPoints() {
+      this.repeatStartBeat = null;
+      this.repeatEndBeat = null;
+      const pointAInput = document.getElementById("pointAInput");
+      const pointBInput = document.getElementById("pointBInput");
+      if (pointAInput) {
+        pointAInput.value = "";
+        pointAInput.classList.remove("repeat-point-highlight");
+      }
+      if (pointBInput) {
+        pointBInput.value = "";
+        pointBInput.classList.remove("repeat-point-highlight");
       }
     }
     /**
