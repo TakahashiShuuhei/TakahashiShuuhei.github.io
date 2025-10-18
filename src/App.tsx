@@ -42,6 +42,10 @@ function App() {
               <a href="#/apps/piano-practice">Piano Practice App</a>
               <span className="app-description">ピアノ練習支援アプリ</span>
             </li>
+            <li>
+              <a href="#/apps/piano-fig">Piano Figure Generator</a>
+              <span className="app-description">ピアノ鍵盤SVG生成ツール</span>
+            </li>
           </ul>
         </section>
         
