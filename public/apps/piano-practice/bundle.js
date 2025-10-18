@@ -34862,7 +34862,8 @@
       const currentTime = this.currentGameState.currentTime;
       const currentPosition = this.musicalTimeManager.getCurrentMusicalPosition();
       if (this.isPartialRepeatEnabled && this.repeatStartBeat !== null && this.repeatEndBeat !== null) {
-        if (currentPosition >= this.repeatEndBeat) {
+        const epsilon = 0.01;
+        if (currentPosition >= this.repeatEndBeat - epsilon) {
           this.musicalTimeManager.seekToMusicalPosition(this.repeatStartBeat);
           const seekedTime = this.musicalTimeManager.getCurrentRealTime();
           this.scoreEvaluator.startNewPlaySession(seekedTime);
@@ -35060,6 +35061,10 @@
         return;
       }
       const lastNote = this.currentNotes[this.currentNotes.length - 1];
+      if (!lastNote) {
+        this.showError("\u697D\u66F2\u30C7\u30FC\u30BF\u304C\u6B63\u3057\u304F\u8AAD\u307F\u8FBC\u307E\u308C\u3066\u3044\u307E\u305B\u3093");
+        return;
+      }
       const lastNoteBeat = this.beatTimeConverter.msToBeats(lastNote.startTime + lastNote.duration);
       this.repeatEndBeat = lastNoteBeat;
       const input = document.getElementById("pointBInput");
