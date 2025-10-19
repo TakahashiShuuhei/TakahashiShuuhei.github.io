@@ -33786,7 +33786,7 @@
             const jsonString = event.target?.result;
             const jsonData = JSON.parse(jsonString);
             const result = this.processSongData(jsonData);
-            resolve({ notes: result.notes, memos: result.memos });
+            resolve({ notes: result.notes, memos: result.memos, referenceImageUrl: result.referenceImageUrl });
           } catch (error) {
             reject(new Error("\u30D5\u30A1\u30A4\u30EB\u306E\u8AAD\u307F\u8FBC\u307F\u306B\u5931\u6557\u3057\u307E\u3057\u305F"));
           }
@@ -33809,7 +33809,7 @@
         }
         const jsonData = await response.json();
         const result = this.processSongData(jsonData);
-        return { notes: result.notes, memos: result.memos };
+        return { notes: result.notes, memos: result.memos, referenceImageUrl: result.referenceImageUrl };
       } catch (error) {
         console.error("Failed to load song from URL:", error);
         throw new Error(`\u697D\u66F2\u306E\u8AAD\u307F\u8FBC\u307F\u306B\u5931\u6557\u3057\u307E\u3057\u305F: ${error instanceof Error ? error.message : "Unknown error"}`);
@@ -33836,7 +33836,7 @@
         const jsonString = this.decodeBase64UTF8(base64Data);
         const jsonData = JSON.parse(jsonString);
         const result = this.processSongData(jsonData);
-        return { notes: result.notes, memos: result.memos };
+        return { notes: result.notes, memos: result.memos, referenceImageUrl: result.referenceImageUrl };
       } catch (error) {
         console.error("Failed to decode base64 data:", error);
         throw new Error("Base64\u30C7\u30FC\u30BF\u306E\u89E3\u6790\u306B\u5931\u6557\u3057\u307E\u3057\u305F");
@@ -33868,7 +33868,8 @@
       }
       const notes = this.convertToMusicalNotes(songData);
       const memos = songData.memos || [];
-      return { notes, memos };
+      const referenceImageUrl = songData.referenceImageUrl;
+      return { notes, memos, referenceImageUrl };
     }
     /**
      * SongDataのバリデーション
@@ -33904,7 +33905,8 @@
         bpm: data.bpm || 120,
         // デフォルト値
         notes: data.notes,
-        memos: data.memos
+        memos: data.memos,
+        referenceImageUrl: data.referenceImageUrl
       };
     }
     /**
@@ -34269,6 +34271,7 @@
       this.setupVolumeControls();
       this.setupSeekBarControls();
       this.setupPartialRepeatControls();
+      this.setupReferenceImageToggle();
     }
     async loadInitialContent() {
       try {
@@ -34283,6 +34286,11 @@
           const songTitle = await this.contentLoader.getSongTitle();
           if (songTitle) {
             this.updateSongTitle(songTitle);
+          }
+          if (songData.referenceImageUrl) {
+            this.updateReferenceImage(songData.referenceImageUrl);
+          } else {
+            this.hideReferenceImage();
           }
           console.log("\u697D\u66F2\u30C7\u30FC\u30BF\u3092\u8AAD\u307F\u8FBC\u307F\u307E\u3057\u305F:", songTitle || "\u7121\u984C", `(BPM: ${songBPM || 120})`);
         } else {
@@ -34300,9 +34308,29 @@
      * 楽曲タイトルをUIに反映
      */
     updateSongTitle(title) {
-      const headerElement = document.querySelector(".header h1");
-      if (headerElement) {
-        headerElement.textContent = `\u{1F3B9} ${title}`;
+      const titleElement = document.getElementById("songTitle");
+      if (titleElement) {
+        titleElement.textContent = title;
+      }
+    }
+    /**
+     * 参考画像を表示
+     */
+    updateReferenceImage(imageUrl) {
+      const imageArea = document.getElementById("referenceImageArea");
+      const imageElement = document.getElementById("referenceImage");
+      if (imageArea && imageElement) {
+        imageElement.src = imageUrl;
+        imageArea.style.display = "block";
+      }
+    }
+    /**
+     * 参考画像を非表示
+     */
+    hideReferenceImage() {
+      const imageArea = document.getElementById("referenceImageArea");
+      if (imageArea) {
+        imageArea.style.display = "none";
       }
     }
     /**
@@ -34325,6 +34353,11 @@
             }
             if (jsonData.bpm) {
               this.setBPM(jsonData.bpm);
+            }
+            if (jsonData.referenceImageUrl) {
+              this.updateReferenceImage(jsonData.referenceImageUrl);
+            } else {
+              this.hideReferenceImage();
             }
             console.log("\u697D\u66F2\u30D5\u30A1\u30A4\u30EB\u3092\u8AAD\u307F\u8FBC\u307F\u307E\u3057\u305F:", jsonData.title || "\u7121\u984C", `(BPM: ${jsonData.bpm || 120})`);
           } catch (error) {
@@ -35090,6 +35123,30 @@
       if (pointBInput) {
         pointBInput.value = "";
         pointBInput.classList.remove("repeat-point-highlight");
+      }
+    }
+    /**
+     * 参考画像トグルコントロールを設定
+     */
+    setupReferenceImageToggle() {
+      const toggleButton = document.getElementById("referenceImageToggle");
+      const toggleIcon = document.getElementById("toggleIcon");
+      const imageContent = document.getElementById("referenceImageContent");
+      if (toggleButton && toggleIcon && imageContent) {
+        toggleButton.addEventListener("click", () => {
+          const isExpanded = imageContent.classList.contains("expanded");
+          if (isExpanded) {
+            imageContent.classList.remove("expanded");
+            imageContent.classList.add("collapsed");
+            toggleIcon.classList.remove("expanded");
+            toggleIcon.textContent = "\u25B6";
+          } else {
+            imageContent.classList.remove("collapsed");
+            imageContent.classList.add("expanded");
+            toggleIcon.classList.add("expanded");
+            toggleIcon.textContent = "\u25BC";
+          }
+        });
       }
     }
     /**
