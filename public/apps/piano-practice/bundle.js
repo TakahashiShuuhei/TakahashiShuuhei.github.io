@@ -34541,10 +34541,6 @@
       this.uiRenderer.setKeyPressed(note, true);
       if (this.currentGameState.phase === "playing" /* PLAYING */) {
         const evaluation = this.scoreEvaluator.evaluateInput(note, this.currentGameState.currentTime, this.currentNotes);
-        if (evaluation.isHit) {
-          this.audioFeedbackManager.playNoteSound(note, 0.2);
-        } else {
-        }
         const scoreInfo = this.scoreEvaluator.getScore();
         this.currentGameState.score = scoreInfo.correct;
         this.currentGameState.accuracy = scoreInfo.accuracy;
