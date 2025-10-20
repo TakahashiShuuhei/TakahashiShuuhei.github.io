@@ -33179,7 +33179,7 @@
 
   // src/utils/MusicalTimeManager.ts
   var MusicalTimeManager = class {
-    // 一時停止時の音楽的位置
+    // Time when frozen (for wait-for-input mode)
     constructor(initialBPM = 120) {
       this.gameStartTime = 0;
       this.pausedTime = 0;
@@ -33187,6 +33187,10 @@
       this.seekOffset = 0;
       // シークバーによる位置調整
       this.pausedMusicalPosition = 0;
+      // 一時停止時の音楽的位置
+      // Wait-for-input mode support
+      this.timeMode = "realtime";
+      this.frozenTime = 0;
       this.currentBPM = initialBPM;
     }
     /**
@@ -33197,6 +33201,8 @@
       this.pausedTime = 0;
       this.totalPausedDuration = 0;
       this.seekOffset = 0;
+      this.timeMode = "realtime";
+      this.frozenTime = 0;
     }
     /**
      * 一時停止
@@ -33226,6 +33232,8 @@
       this.totalPausedDuration = 0;
       this.seekOffset = 0;
       this.pausedMusicalPosition = 0;
+      this.timeMode = "realtime";
+      this.frozenTime = 0;
     }
     /**
      * BPMを変更（音楽的位置を保持）
@@ -33254,6 +33262,9 @@
      */
     getCurrentRealTime() {
       if (this.gameStartTime === 0) return 0;
+      if (this.timeMode === "frozen") {
+        return this.frozenTime;
+      }
       const now2 = Date.now();
       const pausedDuration = this.pausedTime > 0 ? now2 - this.pausedTime : 0;
       return now2 - this.gameStartTime - this.totalPausedDuration - pausedDuration + this.seekOffset;
@@ -33320,6 +33331,30 @@
       return this.pausedTime > 0;
     }
     /**
+     * Wait-for-input mode: Freeze time at current position
+     */
+    freezeTimeAt(timeMs) {
+      this.timeMode = "frozen";
+      this.frozenTime = timeMs;
+    }
+    /**
+     * Wait-for-input mode: Unfreeze and continue from frozen time
+     */
+    unfreezeTime() {
+      if (this.timeMode === "frozen") {
+        const now2 = Date.now();
+        this.gameStartTime = now2 - this.frozenTime - this.totalPausedDuration + this.seekOffset;
+        this.timeMode = "realtime";
+        this.frozenTime = 0;
+      }
+    }
+    /**
+     * Check if time is currently frozen
+     */
+    isFrozen() {
+      return this.timeMode === "frozen";
+    }
+    /**
      * デバッグ情報を取得
      */
     getDebugInfo() {
@@ -33332,7 +33367,9 @@
         currentBPM: this.currentBPM,
         currentRealTime: this.getCurrentRealTime(),
         currentMusicalPosition: this.getCurrentMusicalPosition(),
-        isPaused: this.isPaused()
+        isPaused: this.isPaused(),
+        timeMode: this.timeMode,
+        frozenTime: this.frozenTime
       };
     }
   };
@@ -34162,7 +34199,7 @@
   };
 
   // src/app/PianoPracticeApp.ts
-  var PianoPracticeApp = class {
+  var _PianoPracticeApp = class _PianoPracticeApp {
     constructor() {
       this.isInitialized = false;
       this.currentBPM = 120;
@@ -34186,6 +34223,17 @@
       this.musicalMemos = [];
       // 現在表示中のメモ（時間ベース、UIRenderer用）
       this.currentMemos = [];
+      // Game mode settings
+      this.gameSettings = {
+        gameMode: "realtime"
+        // Default to real-time mode
+      };
+      // Wait-for-input mode state
+      this.waitForInputState = null;
+      // Track pitches from previous timing for re-press detection (C C problem)
+      this.lastTimingPitches = /* @__PURE__ */ new Set();
+      // Track which note timings we've already waited for (to avoid re-entering waiting state)
+      this.processedWaitTimings = /* @__PURE__ */ new Set();
       // 既に再生したノートを追跡
       this.playedNotes = /* @__PURE__ */ new Set();
       // リピート機能（部分リピートで全曲ループも実現）
@@ -34272,6 +34320,7 @@
       this.setupSeekBarControls();
       this.setupPartialRepeatControls();
       this.setupReferenceImageToggle();
+      this.setupGameModeControls();
     }
     async loadInitialContent() {
       try {
@@ -34414,6 +34463,9 @@
       this.currentGameState.score = 0;
       this.currentGameState.accuracy = 1;
       this.currentGameState.totalNotes = 0;
+      this.waitForInputState = null;
+      this.lastTimingPitches.clear();
+      this.processedWaitTimings.clear();
       this.startCountdown();
     }
     /**
@@ -34489,6 +34541,9 @@
       this.currentNotes = [];
       this.uiRenderer.clearTargetKeys();
       this.playedNotes.clear();
+      this.waitForInputState = null;
+      this.lastTimingPitches.clear();
+      this.processedWaitTimings.clear();
       this.updateGameStateDisplay();
     }
     handleResize() {
@@ -34541,15 +34596,30 @@
       this.uiRenderer.setKeyPressed(note, true);
       if (this.currentGameState.phase === "playing" /* PLAYING */) {
         const evaluation = this.scoreEvaluator.evaluateInput(note, this.currentGameState.currentTime, this.currentNotes);
+        if (this.gameSettings.gameMode === "wait-for-input" && evaluation.isHit && evaluation.hitNoteIndex !== void 0) {
+          if (evaluation.hitNoteIndex < this.currentNotes.length) {
+            const hitNote = this.currentNotes[evaluation.hitNoteIndex];
+            this.audioFeedbackManager.playNoteSound(
+              hitNote.pitch,
+              hitNote.duration / 1e3
+            );
+          }
+        }
         const scoreInfo = this.scoreEvaluator.getScore();
         this.currentGameState.score = scoreInfo.correct;
         this.currentGameState.accuracy = scoreInfo.accuracy;
         this.currentGameState.totalNotes = scoreInfo.total;
         this.updateGameStateDisplay();
       }
+      if (this.currentGameState.phase === "waiting_for_input" /* WAITING_FOR_INPUT */) {
+        this.handleNoteOnInWaitMode(note);
+      }
     }
     handleNoteOff(note, toneTime) {
       this.uiRenderer.setKeyPressed(note, false);
+      if (this.currentGameState.phase === "waiting_for_input" /* WAITING_FOR_INPUT */) {
+        this.handleNoteOffInWaitMode(note);
+      }
     }
     /**
      * 描画ループを開始
@@ -34566,7 +34636,14 @@
           this.currentGameState.currentTime = this.musicalTimeManager.getCurrentRealTime();
           this.scoreEvaluator.updateActiveNotes(this.currentGameState.currentTime, this.currentNotes);
           this.updatePlayingGuide();
+          if (this.gameSettings.gameMode === "wait-for-input") {
+            this.checkShouldEnterWaitingState();
+          }
           this.checkSongEnd();
+        }
+        if (this.currentGameState.phase === "waiting_for_input" /* WAITING_FOR_INPUT */ && this.musicalTimeManager.isStarted()) {
+          this.currentGameState.currentTime = this.musicalTimeManager.getCurrentRealTime();
+          this.updatePlayingGuide();
         }
         this.uiRenderer.render(this.currentGameState, this.currentNotes, this.currentMemos);
         this.updateSeekBarDisplay();
@@ -34765,18 +34842,37 @@
       if (!lastNote) return;
       const totalDuration = lastNote.startTime + lastNote.duration;
       this.musicalTimeManager.setProgress(progress, totalDuration);
+      this.resetWaitForInputState();
     }
     /**
      * シークバー用：指定した音楽的位置（拍数）にシーク
      */
     seekToMusicalPosition(beats) {
       this.musicalTimeManager.seekToMusicalPosition(beats);
+      this.resetWaitForInputState();
+    }
+    /**
+     * Reset wait-for-input mode state (when seeking or mode switching)
+     */
+    resetWaitForInputState() {
+      if (this.currentGameState.phase === "waiting_for_input" /* WAITING_FOR_INPUT */) {
+        this.musicalTimeManager.unfreezeTime();
+        this.currentGameState.phase = "playing" /* PLAYING */;
+      }
+      this.waitForInputState = null;
+      this.lastTimingPitches.clear();
+      this.processedWaitTimings.clear();
     }
     /**
      * 演奏ガイドを更新
      */
     updatePlayingGuide() {
       const currentTime = this.currentGameState.currentTime;
+      if (this.currentGameState.phase === "waiting_for_input" /* WAITING_FOR_INPUT */ && this.waitForInputState) {
+        const requiredKeys = Array.from(this.waitForInputState.requiredNotes);
+        this.uiRenderer.setCurrentTargetKeys(requiredKeys);
+        return;
+      }
       const activeNotes = this.currentNotes.filter((note) => {
         const noteStartTime = note.startTime;
         const noteEndTime = note.startTime + note.duration;
@@ -34798,7 +34894,10 @@
      * 楽譜のノートを指定されたタイミングで自動再生
      */
     playScheduledNotes(currentTime) {
-      const tolerance = 50;
+      if (this.gameSettings.gameMode === "wait-for-input") {
+        return;
+      }
+      const tolerance = _PianoPracticeApp.SCHEDULED_NOTE_TOLERANCE_MS;
       this.currentNotes.forEach((note) => {
         const noteId = `${note.pitch}-${note.startTime}`;
         if (this.playedNotes.has(noteId)) {
@@ -34898,6 +34997,7 @@
           this.scoreEvaluator.startNewPlaySession(seekedTime);
           this.playedNotes.clear();
           this.uiRenderer.clearTargetKeys();
+          this.resetWaitForInputState();
         }
         return;
       }
@@ -35146,6 +35246,157 @@
       }
     }
     /**
+     * ゲームモード選択コントロールを設定
+     */
+    setupGameModeControls() {
+      const gameModeSelect = document.getElementById("gameModeSelect");
+      if (gameModeSelect) {
+        gameModeSelect.addEventListener("change", (event) => {
+          const mode = event.target.value;
+          this.setGameMode(mode);
+        });
+        gameModeSelect.value = this.gameSettings.gameMode;
+      }
+    }
+    /**
+     * ゲームモードを設定
+     */
+    setGameMode(mode) {
+      this.gameSettings.gameMode = mode;
+      if (mode === "realtime" && this.currentGameState.phase === "waiting_for_input" /* WAITING_FOR_INPUT */) {
+        this.musicalTimeManager.unfreezeTime();
+        this.currentGameState.phase = "playing" /* PLAYING */;
+        this.waitForInputState = null;
+      }
+      if (mode === "wait-for-input") {
+        this.processedWaitTimings.clear();
+        this.lastTimingPitches.clear();
+      }
+    }
+    /**
+     * 現在のゲームモードを取得
+     */
+    getGameMode() {
+      return this.gameSettings.gameMode;
+    }
+    // ========================================
+    // Wait-for-input mode methods
+    // ========================================
+    /**
+     * Check if we should enter waiting state for next note
+     */
+    checkShouldEnterWaitingState() {
+      if (this.currentGameState.phase === "waiting_for_input" /* WAITING_FOR_INPUT */) {
+        return;
+      }
+      const currentTime = this.currentGameState.currentTime;
+      const nextGroup = this.findNextNoteGroup(currentTime);
+      if (nextGroup.length === 0) {
+        return;
+      }
+      const nextStartTime = nextGroup[0].startTime;
+      if (currentTime >= nextStartTime - _PianoPracticeApp.WAIT_THRESHOLD_MS) {
+        this.enterWaitingState(nextGroup);
+      }
+    }
+    /**
+     * Find the next group of notes (notes with same startTime)
+     * Looks for notes that haven't been processed yet
+     */
+    findNextNoteGroup(currentTime) {
+      const futureNotes = this.currentNotes.filter((note) => {
+        return note.startTime >= currentTime - _PianoPracticeApp.LOOK_AHEAD_MS && !this.processedWaitTimings.has(note.startTime);
+      }).sort((a, b) => a.startTime - b.startTime);
+      if (futureNotes.length === 0) {
+        return [];
+      }
+      const nextStartTime = futureNotes[0].startTime;
+      return futureNotes.filter((note) => note.startTime === nextStartTime);
+    }
+    /**
+     * Enter waiting state for a group of notes
+     */
+    enterWaitingState(noteGroup) {
+      const startTime = noteGroup[0].startTime;
+      this.processedWaitTimings.add(startTime);
+      this.waitForInputState = {
+        requiredNotes: new Set(noteGroup.map((n) => n.pitch)),
+        pressedNotesForCurrentTiming: /* @__PURE__ */ new Set(),
+        currentTimingNotes: noteGroup,
+        nextNoteStartTime: startTime,
+        waitingStartTime: this.currentGameState.currentTime,
+        lastInputPitches: new Set(this.lastTimingPitches)
+        // Use saved pitches from previous timing
+      };
+      this.musicalTimeManager.freezeTimeAt(startTime);
+      this.currentGameState.phase = "waiting_for_input" /* WAITING_FOR_INPUT */;
+      const requiredKeys = Array.from(this.waitForInputState.requiredNotes);
+      this.uiRenderer.setCurrentTargetKeys(requiredKeys);
+    }
+    /**
+     * Exit waiting state and resume playback
+     */
+    exitWaitingState() {
+      if (!this.waitForInputState) return;
+      this.lastTimingPitches = new Set(this.waitForInputState.pressedNotesForCurrentTiming);
+      this.musicalTimeManager.unfreezeTime();
+      this.currentGameState.phase = "playing" /* PLAYING */;
+      this.waitForInputState = null;
+    }
+    /**
+     * Check if all required notes have been pressed
+     */
+    isAllRequiredNotesPressed() {
+      if (!this.waitForInputState) return false;
+      for (const requiredNote of this.waitForInputState.requiredNotes) {
+        if (!this.waitForInputState.pressedNotesForCurrentTiming.has(requiredNote)) {
+          return false;
+        }
+      }
+      return true;
+    }
+    /**
+     * Handle note input in waiting mode
+     */
+    handleNoteOnInWaitMode(note) {
+      if (!this.waitForInputState) return;
+      const state = this.waitForInputState;
+      if (!state.requiredNotes.has(note)) {
+        return;
+      }
+      if (state.lastInputPitches.has(note)) {
+        return;
+      }
+      const hitNote = state.currentTimingNotes.find((n) => n.pitch === note);
+      if (hitNote) {
+        this.audioFeedbackManager.playNoteSound(
+          hitNote.pitch,
+          hitNote.duration / 1e3
+        );
+      }
+      this.scoreEvaluator.evaluateInput(
+        note,
+        state.nextNoteStartTime,
+        state.currentTimingNotes
+      );
+      const scoreInfo = this.scoreEvaluator.getScore();
+      this.currentGameState.score = scoreInfo.correct;
+      this.currentGameState.accuracy = scoreInfo.accuracy;
+      this.currentGameState.totalNotes = scoreInfo.total;
+      this.updateGameStateDisplay();
+      state.pressedNotesForCurrentTiming.add(note);
+      if (this.isAllRequiredNotesPressed()) {
+        this.exitWaitingState();
+      }
+    }
+    /**
+     * Handle note release in waiting mode
+     */
+    handleNoteOffInWaitMode(note) {
+      if (!this.waitForInputState) return;
+      this.waitForInputState.lastInputPitches.delete(note);
+    }
+    /**
      * デバッグ用：音楽的時間管理の状態を取得
      */
     getTimeDebugInfo() {
@@ -35166,6 +35417,13 @@
       }
     }
   };
+  // Wait-for-input mode timing constants
+  _PianoPracticeApp.WAIT_THRESHOLD_MS = 50;
+  // Enter waiting state 50ms before note
+  _PianoPracticeApp.LOOK_AHEAD_MS = 100;
+  // Look ahead window for finding next notes
+  _PianoPracticeApp.SCHEDULED_NOTE_TOLERANCE_MS = 50;
+  var PianoPracticeApp = _PianoPracticeApp;
 
   // src/index.ts
   document.addEventListener("DOMContentLoaded", () => {
