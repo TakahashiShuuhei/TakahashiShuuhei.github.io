@@ -34643,7 +34643,9 @@
         }
         if (this.currentGameState.phase === "waiting_for_input" /* WAITING_FOR_INPUT */ && this.musicalTimeManager.isStarted()) {
           this.currentGameState.currentTime = this.musicalTimeManager.getCurrentRealTime();
+          this.scoreEvaluator.updateActiveNotes(this.currentGameState.currentTime, this.currentNotes);
           this.updatePlayingGuide();
+          this.checkSongEnd();
         }
         this.uiRenderer.render(this.currentGameState, this.currentNotes, this.currentMemos);
         this.updateSeekBarDisplay();
@@ -34714,11 +34716,6 @@
      */
     updateCurrentNotes() {
       const timeBasedNotes = this.beatTimeConverter.convertNotes(this.musicalNotes);
-      console.log("Sample converted notes:", timeBasedNotes.slice(0, 5).map((n) => ({
-        pitch: n.pitch,
-        startTime: n.startTime,
-        duration: n.duration
-      })));
       this.currentNotes = timeBasedNotes.map((note) => ({
         ...note,
         startTime: note.startTime
@@ -34992,12 +34989,12 @@
       if (this.isPartialRepeatEnabled && this.repeatStartBeat !== null && this.repeatEndBeat !== null) {
         const epsilon = 0.01;
         if (currentPosition >= this.repeatEndBeat - epsilon) {
+          this.resetWaitForInputState();
           this.musicalTimeManager.seekToMusicalPosition(this.repeatStartBeat);
           const seekedTime = this.musicalTimeManager.getCurrentRealTime();
           this.scoreEvaluator.startNewPlaySession(seekedTime);
           this.playedNotes.clear();
           this.uiRenderer.clearTargetKeys();
-          this.resetWaitForInputState();
         }
         return;
       }
