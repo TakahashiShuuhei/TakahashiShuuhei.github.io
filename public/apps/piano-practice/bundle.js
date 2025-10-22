@@ -32650,8 +32650,6 @@
       const totalNotes = gameState.totalNotes || 0;
       this.ctx.fillText(`\u6B63\u89E3: ${gameState.score} / ${totalNotes}`, 20, 40);
       this.ctx.fillText(`\u6B63\u89E3\u7387: ${(gameState.accuracy * 100).toFixed(1)}%`, 20, 70);
-      this.ctx.fillStyle = gameState.isPlaying ? currentColors.success : currentColors.secondary;
-      this.ctx.fillText(gameState.isPlaying ? "Playing" : "Paused", width - 120, 40);
     }
     /**
      * ノートを描画（音ゲー風の落下ノート）
@@ -34234,6 +34232,8 @@
       this.lastTimingPitches = /* @__PURE__ */ new Set();
       // Track which note timings we've already waited for (to avoid re-entering waiting state)
       this.processedWaitTimings = /* @__PURE__ */ new Set();
+      // Flag to indicate we just seeked (to prevent selecting past notes immediately after seek)
+      this.justSeeked = false;
       // 既に再生したノートを追跡
       this.playedNotes = /* @__PURE__ */ new Set();
       // リピート機能（部分リピートで全曲ループも実現）
@@ -34243,26 +34243,74 @@
     }
     async initialize() {
       try {
-        this.setupDOMElements();
+        this.bindDOMElements();
         await this.initializeComponents();
         this.setupEventListeners();
         await this.loadInitialContent();
         this.isInitialized = true;
         console.log("Piano Practice App initialized successfully");
-        const startBtn = document.getElementById("startBtn");
-        if (startBtn) {
-          startBtn.disabled = false;
-        }
       } catch (error) {
         console.error("Failed to initialize app:", error);
         this.showError("\u30A2\u30D7\u30EA\u30B1\u30FC\u30B7\u30E7\u30F3\u306E\u521D\u671F\u5316\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002");
       }
     }
-    setupDOMElements() {
-      this.canvas = document.getElementById("gameCanvas");
-      if (!this.canvas) {
-        throw new Error("Canvas element not found");
-      }
+    bindDOMElements() {
+      const getElement = (id, type) => {
+        const element = document.getElementById(id);
+        if (!element) {
+          throw new Error(`Element with id '${id}' not found`);
+        }
+        if (type && !(element instanceof type)) {
+          throw new Error(`Element with id '${id}' is not of expected type`);
+        }
+        return element;
+      };
+      this.dom = {
+        // Canvas
+        canvas: getElement("gameCanvas", HTMLCanvasElement),
+        errorMessage: getElement("errorMessage"),
+        songTitle: getElement("songTitle"),
+        fileInput: getElement("fileInput", HTMLInputElement),
+        // コントロールボタン
+        playPauseBtn: getElement("playPauseBtn", HTMLButtonElement),
+        stopBtn: getElement("stopBtn", HTMLButtonElement),
+        // MIDI関連
+        midiStatus: getElement("midiStatus"),
+        midiStatusText: getElement("midiStatusText"),
+        midiTooltip: getElement("midiTooltip"),
+        // BPM関連
+        bpmSlider: getElement("bpmSlider", HTMLInputElement),
+        bpmDisplay: getElement("bpmDisplay"),
+        bpmUpBtn: getElement("bpmUp"),
+        bpmDownBtn: getElement("bpmDown"),
+        // 音量関連
+        volumeSlider: getElement("volumeSlider", HTMLInputElement),
+        volumeDisplay: getElement("volumeDisplay"),
+        muteBtn: getElement("muteBtn"),
+        // シークバー関連
+        seekBar: getElement("seekBar", HTMLInputElement),
+        currentTimeDisplay: getElement("currentTimeDisplay"),
+        totalTimeDisplay: getElement("totalTimeDisplay"),
+        musicalPositionDisplay: getElement("musicalPositionDisplay"),
+        // リピート関連
+        partialRepeatEnabled: getElement("partialRepeatEnabled", HTMLInputElement),
+        setPointABtn: getElement("setPointA"),
+        setPointAToStartBtn: getElement("setPointAToStart"),
+        setPointBBtn: getElement("setPointB"),
+        setPointBToEndBtn: getElement("setPointBToEnd"),
+        clearRepeatPointsBtn: getElement("clearRepeatPoints"),
+        pointAInput: getElement("pointAInput", HTMLInputElement),
+        pointBInput: getElement("pointBInput", HTMLInputElement),
+        // 参考画像関連
+        referenceImageArea: getElement("referenceImageArea"),
+        referenceImageToggle: getElement("referenceImageToggle"),
+        referenceImageContent: getElement("referenceImageContent"),
+        toggleIcon: getElement("toggleIcon"),
+        referenceImage: getElement("referenceImage", HTMLImageElement),
+        // ゲームモード関連
+        realtimeMode: getElement("realtimeMode"),
+        waitMode: getElement("waitMode")
+      };
     }
     async initializeComponents() {
       try {
@@ -34272,7 +34320,7 @@
         this.scoreEvaluator = new ScoreEvaluator();
         this.contentLoader = new ContentLoader();
         this.uiRenderer = new UIRenderer();
-        this.uiRenderer.initCanvas(this.canvas);
+        this.uiRenderer.initCanvas(this.dom.canvas);
         this.uiRenderer.setTheme("dark");
         this.uiRenderer.setBPM(this.currentBPM);
         this.midiManager = new MIDIInputManager();
@@ -34289,31 +34337,23 @@
       }
     }
     setupEventListeners() {
-      const connectMidiBtn = document.getElementById("connectMidiBtn");
-      if (connectMidiBtn) {
-        connectMidiBtn.addEventListener("click", () => {
+      this.dom.midiStatus.addEventListener("click", () => {
+        const isDisconnected = this.dom.midiStatus.classList.contains("disconnected");
+        if (isDisconnected) {
           this.handleMidiConnect();
-        });
-      } else {
-        console.error("MIDI connect button not found in setupEventListeners");
-      }
-      const fileInput = document.getElementById("fileInput");
-      if (fileInput) {
-        fileInput.addEventListener("change", (event) => this.handleFileLoad(event));
-      }
-      const startBtn = document.getElementById("startBtn");
-      if (startBtn) {
-        startBtn.addEventListener("click", () => this.handleStart());
-      }
-      const pauseBtn = document.getElementById("pauseBtn");
-      if (pauseBtn) {
-        pauseBtn.addEventListener("click", () => this.handlePause());
-      }
-      const stopBtn = document.getElementById("stopBtn");
-      if (stopBtn) {
-        stopBtn.addEventListener("click", () => this.handleStop());
-      }
-      window.addEventListener("resize", () => this.handleResize());
+        }
+      });
+      this.dom.fileInput.addEventListener("change", (event) => this.handleFileLoad(event));
+      this.dom.playPauseBtn.addEventListener("click", () => {
+        if (this.currentGameState.phase === "stopped" /* STOPPED */) {
+          this.handleStart();
+        } else if (this.currentGameState.phase === "playing" /* PLAYING */ || this.currentGameState.phase === "waiting_for_input" /* WAITING_FOR_INPUT */) {
+          this.handlePause();
+        } else if (this.currentGameState.phase === "paused" /* PAUSED */) {
+          this.handlePause();
+        }
+      });
+      this.dom.stopBtn.addEventListener("click", () => this.handleStop());
       document.addEventListener("keydown", (event) => this.handleKeyboardInput(event));
       this.setupBPMControls();
       this.setupVolumeControls();
@@ -34326,21 +34366,15 @@
       try {
         const songData = await this.contentLoader.loadFromURL();
         if (songData) {
-          this.musicalNotes = songData.notes;
-          this.musicalMemos = songData.memos || [];
           const songBPM = await this.contentLoader.getSongBPM();
-          if (songBPM) {
-            this.setBPM(songBPM);
-          }
           const songTitle = await this.contentLoader.getSongTitle();
-          if (songTitle) {
-            this.updateSongTitle(songTitle);
-          }
-          if (songData.referenceImageUrl) {
-            this.updateReferenceImage(songData.referenceImageUrl);
-          } else {
-            this.hideReferenceImage();
-          }
+          this.applySongData({
+            notes: songData.notes,
+            memos: songData.memos,
+            bpm: songBPM ?? void 0,
+            title: songTitle ?? void 0,
+            referenceImageUrl: songData.referenceImageUrl
+          });
           console.log("\u697D\u66F2\u30C7\u30FC\u30BF\u3092\u8AAD\u307F\u8FBC\u307F\u307E\u3057\u305F:", songTitle || "\u7121\u984C", `(BPM: ${songBPM || 120})`);
         } else {
           await this.loadSampleNotes();
@@ -34354,33 +34388,41 @@
       }
     }
     /**
+     * 楽曲データをアプリケーションに適用する共通処理
+     */
+    applySongData(songData) {
+      this.musicalNotes = songData.notes;
+      this.musicalMemos = songData.memos || [];
+      if (songData.bpm) {
+        this.setBPM(songData.bpm);
+      }
+      if (songData.title) {
+        this.updateSongTitle(songData.title);
+      }
+      if (songData.referenceImageUrl) {
+        this.updateReferenceImage(songData.referenceImageUrl);
+      } else {
+        this.hideReferenceImage();
+      }
+    }
+    /**
      * 楽曲タイトルをUIに反映
      */
     updateSongTitle(title) {
-      const titleElement = document.getElementById("songTitle");
-      if (titleElement) {
-        titleElement.textContent = title;
-      }
+      this.dom.songTitle.textContent = title;
     }
     /**
      * 参考画像を表示
      */
     updateReferenceImage(imageUrl) {
-      const imageArea = document.getElementById("referenceImageArea");
-      const imageElement = document.getElementById("referenceImage");
-      if (imageArea && imageElement) {
-        imageElement.src = imageUrl;
-        imageArea.style.display = "block";
-      }
+      this.dom.referenceImage.src = imageUrl;
+      this.dom.referenceImageArea.style.display = "block";
     }
     /**
      * 参考画像を非表示
      */
     hideReferenceImage() {
-      const imageArea = document.getElementById("referenceImageArea");
-      if (imageArea) {
-        imageArea.style.display = "none";
-      }
+      this.dom.referenceImageArea.style.display = "none";
     }
     /**
      * ファイル読み込みを処理
@@ -34397,25 +34439,19 @@
         fileReader.onload = (e) => {
           try {
             const jsonData = JSON.parse(e.target?.result);
-            if (jsonData.title) {
-              this.updateSongTitle(jsonData.title);
-            }
-            if (jsonData.bpm) {
-              this.setBPM(jsonData.bpm);
-            }
-            if (jsonData.referenceImageUrl) {
-              this.updateReferenceImage(jsonData.referenceImageUrl);
-            } else {
-              this.hideReferenceImage();
-            }
+            this.applySongData({
+              notes: songData.notes,
+              memos: songData.memos,
+              bpm: jsonData.bpm,
+              title: jsonData.title,
+              referenceImageUrl: jsonData.referenceImageUrl
+            });
             console.log("\u697D\u66F2\u30D5\u30A1\u30A4\u30EB\u3092\u8AAD\u307F\u8FBC\u307F\u307E\u3057\u305F:", jsonData.title || "\u7121\u984C", `(BPM: ${jsonData.bpm || 120})`);
           } catch (error) {
             console.error("Failed to parse JSON for metadata:", error);
           }
         };
         fileReader.readAsText(file, "utf-8");
-        this.musicalNotes = songData.notes;
-        this.musicalMemos = songData.memos || [];
         if (this.currentGameState.phase !== "stopped" /* STOPPED */) {
           this.handleStop();
         }
@@ -34466,6 +34502,9 @@
       this.waitForInputState = null;
       this.lastTimingPitches.clear();
       this.processedWaitTimings.clear();
+      this.dom.seekBar.value = "0";
+      this.dom.currentTimeDisplay.textContent = "0:00";
+      this.dom.musicalPositionDisplay.textContent = "0.0";
       this.startCountdown();
     }
     /**
@@ -34546,50 +34585,55 @@
       this.processedWaitTimings.clear();
       this.updateGameStateDisplay();
     }
-    handleResize() {
-    }
     updateMidiStatus(connected) {
-      const connectMidiBtn = document.getElementById("connectMidiBtn");
-      if (connectMidiBtn) {
-        connectMidiBtn.textContent = connected ? "MIDI\u63A5\u7D9A\u6E08\u307F" : "MIDI\u63A5\u7D9A";
-        connectMidiBtn.disabled = connected;
+      const midiIcon = this.dom.midiStatus.querySelector(".midi-status-icon");
+      if (midiIcon) {
+        if (connected) {
+          this.dom.midiStatus.classList.remove("disconnected");
+          this.dom.midiStatus.classList.add("connected");
+          midiIcon.textContent = "\u2713";
+          this.dom.midiStatusText.textContent = "MIDI\u63A5\u7D9A\u6E08\u307F";
+          this.dom.midiTooltip.innerHTML = "MIDI\u6A5F\u5668\u304C\u63A5\u7D9A\u3055\u308C\u3066\u3044\u307E\u3059";
+          this.dom.midiStatus.style.cursor = "default";
+        } else {
+          this.dom.midiStatus.classList.remove("connected");
+          this.dom.midiStatus.classList.add("disconnected");
+          midiIcon.textContent = "\u26A0\uFE0F";
+          this.dom.midiStatusText.textContent = "MIDI\u63A5\u7D9A";
+          this.dom.midiTooltip.innerHTML = "\u30AF\u30EA\u30C3\u30AF\u3067\u63A5\u7D9A";
+          this.dom.midiStatus.style.cursor = "pointer";
+        }
       }
-      const startBtn = document.getElementById("startBtn");
-      if (startBtn) {
-        startBtn.disabled = false;
-      }
+      this.dom.playPauseBtn.disabled = false;
     }
     updateGameState(state) {
-      const startBtn = document.getElementById("startBtn");
-      const pauseBtn = document.getElementById("pauseBtn");
-      const stopBtn = document.getElementById("stopBtn");
-      if (startBtn && pauseBtn && stopBtn) {
-        switch (state.phase) {
-          case "stopped" /* STOPPED */:
-            startBtn.disabled = false;
-            pauseBtn.disabled = true;
-            stopBtn.disabled = true;
-            pauseBtn.textContent = "\u4E00\u6642\u505C\u6B62";
-            break;
-          case "countdown" /* COUNTDOWN */:
-            startBtn.disabled = true;
-            pauseBtn.disabled = true;
-            stopBtn.disabled = false;
-            pauseBtn.textContent = "\u4E00\u6642\u505C\u6B62";
-            break;
-          case "playing" /* PLAYING */:
-            startBtn.disabled = true;
-            pauseBtn.disabled = false;
-            stopBtn.disabled = false;
-            pauseBtn.textContent = "\u4E00\u6642\u505C\u6B62";
-            break;
-          case "paused" /* PAUSED */:
-            startBtn.disabled = true;
-            pauseBtn.disabled = false;
-            stopBtn.disabled = false;
-            pauseBtn.textContent = "\u518D\u958B";
-            break;
-        }
+      const icon = this.dom.playPauseBtn.querySelector("i");
+      if (!icon) return;
+      switch (state.phase) {
+        case "stopped" /* STOPPED */:
+          this.dom.playPauseBtn.disabled = false;
+          icon.className = "fas fa-play";
+          this.dom.playPauseBtn.title = "\u958B\u59CB";
+          this.dom.stopBtn.disabled = true;
+          break;
+        case "countdown" /* COUNTDOWN */:
+          this.dom.playPauseBtn.disabled = true;
+          icon.className = "fas fa-play";
+          this.dom.stopBtn.disabled = false;
+          break;
+        case "playing" /* PLAYING */:
+        case "waiting_for_input" /* WAITING_FOR_INPUT */:
+          this.dom.playPauseBtn.disabled = false;
+          icon.className = "fas fa-pause";
+          this.dom.playPauseBtn.title = "\u4E00\u6642\u505C\u6B62";
+          this.dom.stopBtn.disabled = false;
+          break;
+        case "paused" /* PAUSED */:
+          this.dom.playPauseBtn.disabled = false;
+          icon.className = "fas fa-play";
+          this.dom.playPauseBtn.title = "\u518D\u958B";
+          this.dom.stopBtn.disabled = false;
+          break;
       }
     }
     handleNoteOn(note, velocity, toneTime) {
@@ -34599,10 +34643,12 @@
         if (this.gameSettings.gameMode === "wait-for-input" && evaluation.isHit && evaluation.hitNoteIndex !== void 0) {
           if (evaluation.hitNoteIndex < this.currentNotes.length) {
             const hitNote = this.currentNotes[evaluation.hitNoteIndex];
-            this.audioFeedbackManager.playNoteSound(
-              hitNote.pitch,
-              hitNote.duration / 1e3
-            );
+            if (hitNote) {
+              this.audioFeedbackManager.playNoteSound(
+                hitNote.pitch,
+                hitNote.duration / 1e3
+              );
+            }
           }
         }
         const scoreInfo = this.scoreEvaluator.getScore();
@@ -34689,16 +34735,15 @@
         const blob = await response.blob();
         const file = new File([blob], "sample-song.json", { type: "application/json" });
         const songData = await this.contentLoader.loadFromFile(file);
-        this.musicalNotes = songData.notes;
-        this.musicalMemos = songData.memos || [];
         const jsonText = await blob.text();
         const jsonData = JSON.parse(jsonText);
-        if (jsonData.bpm) {
-          this.setBPM(jsonData.bpm);
-        }
-        if (jsonData.title) {
-          this.updateSongTitle(jsonData.title);
-        }
+        this.applySongData({
+          notes: songData.notes,
+          memos: songData.memos,
+          bpm: jsonData.bpm,
+          title: jsonData.title,
+          referenceImageUrl: jsonData.referenceImageUrl
+        });
         console.log("\u30B5\u30F3\u30D7\u30EB\u697D\u66F2\u3092\u8AAD\u307F\u8FBC\u307F\u307E\u3057\u305F:", jsonData.title || "\u30B5\u30F3\u30D7\u30EB\u697D\u66F2");
       } catch (error) {
         console.error("\u30B5\u30F3\u30D7\u30EB\u697D\u66F2\u306E\u8AAD\u307F\u8FBC\u307F\u306B\u5931\u6557:", error);
@@ -34730,69 +34775,50 @@
       this.currentMemos = this.beatTimeConverter.convertMemos(this.musicalMemos);
     }
     showError(message) {
-      const errorElement = document.getElementById("errorMessage");
-      if (errorElement) {
-        errorElement.textContent = message;
-        errorElement.style.display = "block";
-        errorElement.style.backgroundColor = "#f44336";
-        setTimeout(() => {
-          errorElement.style.display = "none";
-        }, 5e3);
-      }
+      this.dom.errorMessage.textContent = message;
+      this.dom.errorMessage.style.display = "block";
+      this.dom.errorMessage.style.backgroundColor = "#f44336";
+      setTimeout(() => {
+        this.dom.errorMessage.style.display = "none";
+      }, 5e3);
     }
     showSuccess(message) {
-      const errorElement = document.getElementById("errorMessage");
-      if (errorElement) {
-        errorElement.textContent = message;
-        errorElement.style.display = "block";
-        errorElement.style.backgroundColor = "#4caf50";
-        setTimeout(() => {
-          errorElement.style.display = "none";
-        }, 3e3);
-      }
+      this.dom.errorMessage.textContent = message;
+      this.dom.errorMessage.style.display = "block";
+      this.dom.errorMessage.style.backgroundColor = "#4caf50";
+      setTimeout(() => {
+        this.dom.errorMessage.style.display = "none";
+      }, 3e3);
     }
     /**
      * BPM調整コントロールを設定
      */
     setupBPMControls() {
-      const bpmSlider = document.getElementById("bpmSlider");
-      const bpmDisplay = document.getElementById("bpmDisplay");
-      const bpmUp = document.getElementById("bpmUp");
-      const bpmDown = document.getElementById("bpmDown");
-      if (bpmSlider && bpmDisplay) {
-        bpmSlider.addEventListener("input", (event) => {
-          const newBPM = parseInt(event.target.value);
-          this.setBPM(newBPM);
-          this.updateBPMDisplay(newBPM);
-        });
-        if (bpmUp) {
-          bpmUp.addEventListener("click", () => {
-            const newBPM = Math.min(200, this.currentBPM + 5);
-            this.setBPM(newBPM);
-            this.updateBPMDisplay(newBPM);
-            bpmSlider.value = newBPM.toString();
-          });
-        }
-        if (bpmDown) {
-          bpmDown.addEventListener("click", () => {
-            const newBPM = Math.max(30, this.currentBPM - 5);
-            this.setBPM(newBPM);
-            this.updateBPMDisplay(newBPM);
-            bpmSlider.value = newBPM.toString();
-          });
-        }
-        this.updateBPMDisplay(this.currentBPM);
-        bpmSlider.value = this.currentBPM.toString();
-      }
+      this.dom.bpmSlider.addEventListener("input", (event) => {
+        const newBPM = parseInt(event.target.value);
+        this.setBPM(newBPM);
+        this.updateBPMDisplay(newBPM);
+      });
+      this.dom.bpmUpBtn.addEventListener("click", () => {
+        const newBPM = Math.min(200, this.currentBPM + 5);
+        this.setBPM(newBPM);
+        this.updateBPMDisplay(newBPM);
+        this.dom.bpmSlider.value = newBPM.toString();
+      });
+      this.dom.bpmDownBtn.addEventListener("click", () => {
+        const newBPM = Math.max(30, this.currentBPM - 5);
+        this.setBPM(newBPM);
+        this.updateBPMDisplay(newBPM);
+        this.dom.bpmSlider.value = newBPM.toString();
+      });
+      this.updateBPMDisplay(this.currentBPM);
+      this.dom.bpmSlider.value = this.currentBPM.toString();
     }
     /**
      * BPM表示を更新
      */
     updateBPMDisplay(bpm) {
-      const bpmDisplay = document.getElementById("bpmDisplay");
-      if (bpmDisplay) {
-        bpmDisplay.textContent = bpm.toString();
-      }
+      this.dom.bpmDisplay.textContent = bpm.toString();
     }
     /**
      * BPMを変更（音楽的位置を保持）
@@ -34910,50 +34936,37 @@
      * 音量調整コントロールを設定
      */
     setupVolumeControls() {
-      const volumeSlider = document.getElementById("volumeSlider");
-      const volumeDisplay = document.getElementById("volumeDisplay");
-      const muteBtn = document.getElementById("muteBtn");
-      if (volumeSlider && volumeDisplay) {
-        volumeSlider.addEventListener("input", (event) => {
-          const volumePercent = parseInt(event.target.value);
-          const volume = volumePercent / 100;
-          this.setAudioVolume(volume);
-          this.updateVolumeDisplay(volumePercent);
-        });
-        const initialVolume = Math.round(this.getAudioVolume() * 100);
-        volumeSlider.value = initialVolume.toString();
-        this.updateVolumeDisplay(initialVolume);
-      }
-      if (muteBtn) {
-        muteBtn.addEventListener("click", async () => {
-          await this.audioFeedbackManager.startAudioContext();
-          const isMuted = this.toggleAudioMute();
-          this.updateMuteButton(isMuted);
-          if (!isMuted) {
-            this.audioFeedbackManager.playNoteSound(60, 0.3);
-          }
-        });
-        this.updateMuteButton(this.isAudioMuted());
-      }
+      this.dom.volumeSlider.addEventListener("input", (event) => {
+        const volumePercent = parseInt(event.target.value);
+        const volume = volumePercent / 100;
+        this.setAudioVolume(volume);
+        this.updateVolumeDisplay(volumePercent);
+      });
+      const initialVolume = Math.round(this.getAudioVolume() * 100);
+      this.dom.volumeSlider.value = initialVolume.toString();
+      this.updateVolumeDisplay(initialVolume);
+      this.dom.muteBtn.addEventListener("click", async () => {
+        await this.audioFeedbackManager.startAudioContext();
+        const isMuted = this.toggleAudioMute();
+        this.updateMuteButton(isMuted);
+        if (!isMuted) {
+          this.audioFeedbackManager.playNoteSound(60, 0.3);
+        }
+      });
+      this.updateMuteButton(this.isAudioMuted());
     }
     /**
      * 音量表示を更新
      */
     updateVolumeDisplay(volumePercent) {
-      const volumeDisplay = document.getElementById("volumeDisplay");
-      if (volumeDisplay) {
-        volumeDisplay.textContent = `${volumePercent}%`;
-      }
+      this.dom.volumeDisplay.textContent = `${volumePercent}%`;
     }
     /**
      * ミュートボタンの表示を更新
      */
     updateMuteButton(isMuted) {
-      const muteBtn = document.getElementById("muteBtn");
-      if (muteBtn) {
-        muteBtn.textContent = isMuted ? "\u{1F507}" : "\u{1F50A}";
-        muteBtn.title = isMuted ? "\u30DF\u30E5\u30FC\u30C8\u89E3\u9664" : "\u30DF\u30E5\u30FC\u30C8";
-      }
+      this.dom.muteBtn.textContent = isMuted ? "\u{1F507}" : "\u{1F50A}";
+      this.dom.muteBtn.title = isMuted ? "\u30DF\u30E5\u30FC\u30C8\u89E3\u9664" : "\u30DF\u30E5\u30FC\u30C8";
     }
     /**
      * 音量を設定 (0-1)
@@ -35009,29 +35022,39 @@
      * シークバーコントロールを設定
      */
     setupSeekBarControls() {
-      const seekBar = document.getElementById("seekBar");
-      if (seekBar) {
-        seekBar.addEventListener("input", (event) => {
-          const progress = parseInt(event.target.value) / 1e3;
-          this.handleSeekBarChange(progress);
-        });
-      }
+      this.dom.seekBar.addEventListener("input", (event) => {
+        const progress = parseInt(event.target.value) / 1e3;
+        this.handleSeekBarChange(progress);
+      });
     }
     /**
      * シークバー変更時の処理
      */
     handleSeekBarChange(progress) {
-      if (!this.musicalTimeManager.isStarted() || this.currentNotes.length === 0) {
+      if (this.currentNotes.length === 0) {
         return;
       }
       const lastNote = this.currentNotes[this.currentNotes.length - 1];
       if (!lastNote) return;
       const totalDuration = lastNote.startTime + lastNote.duration;
       const targetTime = progress * totalDuration;
+      if (this.currentGameState.phase === "waiting_for_input" /* WAITING_FOR_INPUT */) {
+        this.musicalTimeManager.unfreezeTime();
+        this.waitForInputState = null;
+        this.currentGameState.phase = "playing" /* PLAYING */;
+      }
+      if (!this.musicalTimeManager.isStarted()) {
+        this.musicalTimeManager.start();
+      }
       this.musicalTimeManager.seekToRealTime(targetTime);
       const seekedTime = this.musicalTimeManager.getCurrentRealTime();
       this.scoreEvaluator.startNewPlaySession(seekedTime);
       this.playedNotes.clear();
+      if (this.gameSettings.gameMode === "wait-for-input") {
+        this.processedWaitTimings.clear();
+        this.lastTimingPitches.clear();
+        this.justSeeked = true;
+      }
     }
     /**
      * 拍数単位でシーク
@@ -35059,82 +35082,48 @@
       if (!lastNote) return;
       const totalDuration = lastNote.startTime + lastNote.duration;
       const progress = Math.max(0, Math.min(1, currentTime / totalDuration));
-      const seekBar = document.getElementById("seekBar");
-      if (seekBar) {
-        seekBar.value = Math.round(progress * 1e3).toString();
-      }
-      const currentTimeDisplay = document.getElementById("currentTimeDisplay");
-      const totalTimeDisplay = document.getElementById("totalTimeDisplay");
-      if (currentTimeDisplay) {
-        currentTimeDisplay.textContent = TimeFormatter.formatTime(Math.max(0, currentTime));
-      }
-      if (totalTimeDisplay) {
-        totalTimeDisplay.textContent = TimeFormatter.formatTime(totalDuration);
-      }
-      const musicalPositionDisplay = document.getElementById("musicalPositionDisplay");
-      if (musicalPositionDisplay) {
-        const currentPosition = this.musicalTimeManager.getCurrentMusicalPosition();
-        musicalPositionDisplay.textContent = currentPosition.toFixed(1);
-      }
+      this.dom.seekBar.value = Math.round(progress * 1e3).toString();
+      this.dom.currentTimeDisplay.textContent = TimeFormatter.formatTime(Math.max(0, currentTime));
+      this.dom.totalTimeDisplay.textContent = TimeFormatter.formatTime(totalDuration);
+      const currentPosition = this.musicalTimeManager.getCurrentMusicalPosition();
+      this.dom.musicalPositionDisplay.textContent = currentPosition.toFixed(1);
     }
     /**
      * 部分リピートコントロールを設定
      */
     setupPartialRepeatControls() {
-      const partialRepeatEnabled = document.getElementById("partialRepeatEnabled");
-      const setPointA = document.getElementById("setPointA");
-      const setPointAToStart = document.getElementById("setPointAToStart");
-      const setPointB = document.getElementById("setPointB");
-      const setPointBToEnd = document.getElementById("setPointBToEnd");
-      const clearRepeatPoints = document.getElementById("clearRepeatPoints");
-      const pointAInput = document.getElementById("pointAInput");
-      const pointBInput = document.getElementById("pointBInput");
-      if (partialRepeatEnabled) {
-        partialRepeatEnabled.addEventListener("change", () => {
-          this.isPartialRepeatEnabled = partialRepeatEnabled.checked;
-        });
-      }
-      if (setPointA) {
-        setPointA.addEventListener("click", () => {
-          this.setRepeatPoint("start");
-        });
-      }
-      if (setPointAToStart) {
-        setPointAToStart.addEventListener("click", () => {
-          this.setRepeatPointToStart();
-        });
-      }
-      if (setPointB) {
-        setPointB.addEventListener("click", () => {
-          this.setRepeatPoint("end");
-        });
-      }
-      if (setPointBToEnd) {
-        setPointBToEnd.addEventListener("click", () => {
-          this.setRepeatPointToEnd();
-        });
-      }
-      if (clearRepeatPoints) {
-        clearRepeatPoints.addEventListener("click", () => {
-          this.clearRepeatPoints();
-        });
-      }
-      if (pointAInput) {
-        pointAInput.addEventListener("change", () => {
-          const value = parseFloat(pointAInput.value);
-          if (!isNaN(value) && value >= 0) {
-            this.repeatStartBeat = value;
-          }
-        });
-      }
-      if (pointBInput) {
-        pointBInput.addEventListener("change", () => {
-          const value = parseFloat(pointBInput.value);
-          if (!isNaN(value) && value >= 0) {
-            this.repeatEndBeat = value;
-          }
-        });
-      }
+      this.dom.partialRepeatEnabled.addEventListener("change", () => {
+        this.isPartialRepeatEnabled = this.dom.partialRepeatEnabled.checked;
+        this.updateRepeatControlsState();
+      });
+      this.updateRepeatControlsState();
+      this.dom.setPointABtn.addEventListener("click", () => {
+        this.setRepeatPoint("start");
+      });
+      this.dom.setPointAToStartBtn.addEventListener("click", () => {
+        this.setRepeatPointToStart();
+      });
+      this.dom.setPointBBtn.addEventListener("click", () => {
+        this.setRepeatPoint("end");
+      });
+      this.dom.setPointBToEndBtn.addEventListener("click", () => {
+        this.setRepeatPointToEnd();
+      });
+      this.dom.clearRepeatPointsBtn.addEventListener("click", () => {
+        this.clearRepeatPoints();
+      });
+      this.dom.pointAInput.addEventListener("change", () => {
+        const value = parseFloat(this.dom.pointAInput.value);
+        if (!isNaN(value) && value >= 0) {
+          this.repeatStartBeat = value;
+        }
+      });
+      this.dom.pointBInput.addEventListener("change", () => {
+        const value = parseFloat(this.dom.pointBInput.value);
+        if (!isNaN(value) && value >= 0) {
+          this.repeatEndBeat = value;
+        }
+      });
     }
     /**
      * リピート位置を設定
@@ -35147,22 +35136,16 @@
       const currentPosition = this.musicalTimeManager.getCurrentMusicalPosition();
       if (type === "start") {
         this.repeatStartBeat = currentPosition;
-        const input = document.getElementById("pointAInput");
-        if (input) {
-          input.value = currentPosition.toFixed(1);
-          input.classList.remove("repeat-point-highlight");
-          void input.offsetWidth;
-          input.classList.add("repeat-point-highlight");
-        }
+        this.dom.pointAInput.value = currentPosition.toFixed(1);
+        this.dom.pointAInput.classList.remove("repeat-point-highlight");
+        void this.dom.pointAInput.offsetWidth;
+        this.dom.pointAInput.classList.add("repeat-point-highlight");
       } else {
         this.repeatEndBeat = currentPosition;
-        const input = document.getElementById("pointBInput");
-        if (input) {
-          input.value = currentPosition.toFixed(1);
-          input.classList.remove("repeat-point-highlight");
-          void input.offsetWidth;
-          input.classList.add("repeat-point-highlight");
-        }
+        this.dom.pointBInput.value = currentPosition.toFixed(1);
+        this.dom.pointBInput.classList.remove("repeat-point-highlight");
+        void this.dom.pointBInput.offsetWidth;
+        this.dom.pointBInput.classList.add("repeat-point-highlight");
       }
     }
     /**
@@ -35170,36 +35153,30 @@
      */
     setRepeatPointToStart() {
       this.repeatStartBeat = 0;
-      const input = document.getElementById("pointAInput");
-      if (input) {
-        input.value = "0.0";
-        input.classList.remove("repeat-point-highlight");
-        void input.offsetWidth;
-        input.classList.add("repeat-point-highlight");
-      }
+      this.dom.pointAInput.value = "0.0";
+      this.dom.pointAInput.classList.remove("repeat-point-highlight");
+      void this.dom.pointAInput.offsetWidth;
+      this.dom.pointAInput.classList.add("repeat-point-highlight");
     }
     /**
      * 終了位置を楽曲の最後に設定
      */
     setRepeatPointToEnd() {
-      if (this.currentNotes.length === 0) {
+      if (this.musicalNotes.length === 0) {
         this.showError("\u697D\u66F2\u30C7\u30FC\u30BF\u304C\u8AAD\u307F\u8FBC\u307E\u308C\u3066\u3044\u307E\u305B\u3093");
         return;
       }
-      const lastNote = this.currentNotes[this.currentNotes.length - 1];
-      if (!lastNote) {
+      const lastMusicalNote = this.musicalNotes[this.musicalNotes.length - 1];
+      if (!lastMusicalNote) {
         this.showError("\u697D\u66F2\u30C7\u30FC\u30BF\u304C\u6B63\u3057\u304F\u8AAD\u307F\u8FBC\u307E\u308C\u3066\u3044\u307E\u305B\u3093");
         return;
       }
-      const lastNoteBeat = this.beatTimeConverter.msToBeats(lastNote.startTime + lastNote.duration);
+      const lastNoteBeat = lastMusicalNote.timing.beat + lastMusicalNote.timing.duration;
       this.repeatEndBeat = lastNoteBeat;
-      const input = document.getElementById("pointBInput");
-      if (input) {
-        input.value = lastNoteBeat.toFixed(1);
-        input.classList.remove("repeat-point-highlight");
-        void input.offsetWidth;
-        input.classList.add("repeat-point-highlight");
-      }
+      this.dom.pointBInput.value = lastNoteBeat.toFixed(1);
+      this.dom.pointBInput.classList.remove("repeat-point-highlight");
+      void this.dom.pointBInput.offsetWidth;
+      this.dom.pointBInput.classList.add("repeat-point-highlight");
     }
     /**
      * リピート位置をクリア
@@ -35207,52 +35184,63 @@
     clearRepeatPoints() {
       this.repeatStartBeat = null;
       this.repeatEndBeat = null;
-      const pointAInput = document.getElementById("pointAInput");
-      const pointBInput = document.getElementById("pointBInput");
-      if (pointAInput) {
-        pointAInput.value = "";
-        pointAInput.classList.remove("repeat-point-highlight");
-      }
-      if (pointBInput) {
-        pointBInput.value = "";
-        pointBInput.classList.remove("repeat-point-highlight");
-      }
+      this.dom.pointAInput.value = "";
+      this.dom.pointAInput.classList.remove("repeat-point-highlight");
+      this.dom.pointBInput.value = "";
+      this.dom.pointBInput.classList.remove("repeat-point-highlight");
+    }
+    /**
+     * リピートコントロールの有効/無効状態を更新
+     */
+    updateRepeatControlsState() {
+      const isEnabled = this.isPartialRepeatEnabled;
+      this.dom.setPointABtn.disabled = !isEnabled;
+      this.dom.setPointAToStartBtn.disabled = !isEnabled;
+      this.dom.setPointBBtn.disabled = !isEnabled;
+      this.dom.setPointBToEndBtn.disabled = !isEnabled;
+      this.dom.clearRepeatPointsBtn.disabled = !isEnabled;
+      this.dom.pointAInput.disabled = !isEnabled;
+      this.dom.pointBInput.disabled = !isEnabled;
     }
     /**
      * 参考画像トグルコントロールを設定
      */
     setupReferenceImageToggle() {
-      const toggleButton = document.getElementById("referenceImageToggle");
-      const toggleIcon = document.getElementById("toggleIcon");
-      const imageContent = document.getElementById("referenceImageContent");
-      if (toggleButton && toggleIcon && imageContent) {
-        toggleButton.addEventListener("click", () => {
-          const isExpanded = imageContent.classList.contains("expanded");
-          if (isExpanded) {
-            imageContent.classList.remove("expanded");
-            imageContent.classList.add("collapsed");
-            toggleIcon.classList.remove("expanded");
-            toggleIcon.textContent = "\u25B6";
-          } else {
-            imageContent.classList.remove("collapsed");
-            imageContent.classList.add("expanded");
-            toggleIcon.classList.add("expanded");
-            toggleIcon.textContent = "\u25BC";
-          }
-        });
-      }
+      this.dom.referenceImageToggle.addEventListener("click", () => {
+        const isExpanded = this.dom.referenceImageContent.classList.contains("expanded");
+        if (isExpanded) {
+          this.dom.referenceImageContent.classList.remove("expanded");
+          this.dom.referenceImageContent.classList.add("collapsed");
+          this.dom.toggleIcon.classList.remove("expanded");
+          this.dom.toggleIcon.textContent = "\u25B6";
+        } else {
+          this.dom.referenceImageContent.classList.remove("collapsed");
+          this.dom.referenceImageContent.classList.add("expanded");
+          this.dom.toggleIcon.classList.add("expanded");
+          this.dom.toggleIcon.textContent = "\u25BC";
+        }
+      });
     }
     /**
      * ゲームモード選択コントロールを設定
      */
     setupGameModeControls() {
-      const gameModeSelect = document.getElementById("gameModeSelect");
-      if (gameModeSelect) {
-        gameModeSelect.addEventListener("change", (event) => {
-          const mode = event.target.value;
-          this.setGameMode(mode);
-        });
-        gameModeSelect.value = this.gameSettings.gameMode;
+      this.dom.realtimeMode.addEventListener("click", () => {
+        this.setGameMode("realtime");
+        this.dom.realtimeMode.classList.add("active");
+        this.dom.waitMode.classList.remove("active");
+      });
+      this.dom.waitMode.addEventListener("click", () => {
+        this.setGameMode("wait-for-input");
+        this.dom.waitMode.classList.add("active");
+        this.dom.realtimeMode.classList.remove("active");
+      });
+      if (this.gameSettings.gameMode === "realtime") {
+        this.dom.realtimeMode.classList.add("active");
+        this.dom.waitMode.classList.remove("active");
+      } else {
+        this.dom.waitMode.classList.add("active");
+        this.dom.realtimeMode.classList.remove("active");
       }
     }
     /**
@@ -35291,7 +35279,10 @@
       if (nextGroup.length === 0) {
         return;
       }
-      const nextStartTime = nextGroup[0].startTime;
+      const nextStartTime = nextGroup[0]?.startTime;
+      if (nextStartTime === void 0) {
+        return;
+      }
       if (currentTime >= nextStartTime - _PianoPracticeApp.WAIT_THRESHOLD_MS) {
         this.enterWaitingState(nextGroup);
       }
@@ -35302,19 +35293,43 @@
      */
     findNextNoteGroup(currentTime) {
       const futureNotes = this.currentNotes.filter((note) => {
-        return note.startTime >= currentTime - _PianoPracticeApp.LOOK_AHEAD_MS && !this.processedWaitTimings.has(note.startTime);
+        const isNotProcessed = !this.processedWaitTimings.has(note.startTime);
+        const MAX_PAST_TOLERANCE = 10;
+        const timeDiff = note.startTime - currentTime;
+        const isTooFarInPast = timeDiff < -MAX_PAST_TOLERANCE;
+        if (isTooFarInPast) {
+          return false;
+        }
+        if (this.justSeeked) {
+          return isNotProcessed && note.startTime >= currentTime;
+        }
+        const tolerance = _PianoPracticeApp.LOOK_AHEAD_MS;
+        const isInFuture = note.startTime >= currentTime - tolerance;
+        return isNotProcessed && isInFuture;
       }).sort((a, b) => a.startTime - b.startTime);
       if (futureNotes.length === 0) {
         return [];
       }
-      const nextStartTime = futureNotes[0].startTime;
+      const nextStartTime = futureNotes[0]?.startTime;
+      if (nextStartTime === void 0) {
+        return [];
+      }
+      if (nextStartTime < currentTime - _PianoPracticeApp.LOOK_AHEAD_MS) {
+        this.processedWaitTimings.add(nextStartTime);
+        return [];
+      }
       return futureNotes.filter((note) => note.startTime === nextStartTime);
     }
     /**
      * Enter waiting state for a group of notes
      */
     enterWaitingState(noteGroup) {
-      const startTime = noteGroup[0].startTime;
+      const firstNote = noteGroup[0];
+      if (!firstNote) {
+        return;
+      }
+      const startTime = firstNote.startTime;
+      this.justSeeked = false;
       this.processedWaitTimings.add(startTime);
       this.waitForInputState = {
         requiredNotes: new Set(noteGroup.map((n) => n.pitch)),
