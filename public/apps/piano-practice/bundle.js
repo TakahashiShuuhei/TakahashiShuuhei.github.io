@@ -32645,11 +32645,11 @@
       const currentColors = this.colors[this.theme];
       const width = this.canvas.width / window.devicePixelRatio;
       this.ctx.fillStyle = currentColors.primary;
-      this.ctx.font = "24px Arial";
+      this.ctx.font = "16px Arial";
       this.ctx.textAlign = "left";
       const totalNotes = gameState.totalNotes || 0;
-      this.ctx.fillText(`\u6B63\u89E3: ${gameState.score} / ${totalNotes}`, 20, 40);
-      this.ctx.fillText(`\u6B63\u89E3\u7387: ${(gameState.accuracy * 100).toFixed(1)}%`, 20, 70);
+      this.ctx.fillText(`\u6B63\u89E3: ${gameState.score} / ${totalNotes}`, 20, 30);
+      this.ctx.fillText(`\u6B63\u89E3\u7387: ${(gameState.accuracy * 100).toFixed(1)}%`, 20, 50);
     }
     /**
      * ノートを描画（音ゲー風の落下ノート）
@@ -33026,10 +33026,8 @@
       const displayText = countdownValue === 0 ? "START!" : countdownValue.toString();
       this.ctx.fillText(displayText, centerX, centerY);
       this.ctx.fillStyle = currentColors.secondary;
-      this.ctx.font = "24px Arial";
-      this.ctx.fillText("\u6E96\u5099\u3057\u3066\u304F\u3060\u3055\u3044", centerX, centerY + 80);
       this.ctx.font = "16px Arial";
-      this.ctx.fillText(`BPM: ${this.getCurrentBPM()}`, centerX, centerY + 110);
+      this.ctx.fillText(`BPM: ${this.getCurrentBPM()}`, centerX, centerY + 80);
     }
     /**
      * 現在のBPMを取得
@@ -34832,6 +34830,8 @@
       this.musicalTimeManager.setBPM(newBPM);
       this.beatTimeConverter.setBPM(newBPM);
       this.uiRenderer.setBPM(newBPM);
+      this.updateBPMDisplay(newBPM);
+      this.dom.bpmSlider.value = newBPM.toString();
       if (this.musicalNotes.length > 0) {
         this.updateCurrentNotes();
       }
