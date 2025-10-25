@@ -33205,8 +33205,9 @@
      */
     pause() {
       if (this.pausedTime === 0) {
+        const realTime = this.getCurrentRealTime();
+        this.pausedMusicalPosition = this.realTimeToMusicalPosition(realTime);
         this.pausedTime = Date.now();
-        this.pausedMusicalPosition = this.getCurrentMusicalPosition();
       }
     }
     /**
@@ -35038,6 +35039,7 @@
       if (!lastNote) return;
       const totalDuration = lastNote.startTime + lastNote.duration;
       const targetTime = progress * totalDuration;
+      const wasPaused = this.currentGameState.phase === "paused" /* PAUSED */;
       if (this.currentGameState.phase === "waiting_for_input" /* WAITING_FOR_INPUT */) {
         this.musicalTimeManager.unfreezeTime();
         this.waitForInputState = null;
@@ -35046,8 +35048,15 @@
       if (!this.musicalTimeManager.isStarted()) {
         this.musicalTimeManager.start();
       }
+      if (wasPaused && this.musicalTimeManager.isPaused()) {
+        this.musicalTimeManager.resume();
+      }
       this.musicalTimeManager.seekToRealTime(targetTime);
       const seekedTime = this.musicalTimeManager.getCurrentRealTime();
+      this.currentGameState.currentTime = seekedTime;
+      if (wasPaused) {
+        this.musicalTimeManager.pause();
+      }
       this.scoreEvaluator.startNewPlaySession(seekedTime);
       this.playedNotes.clear();
       if (this.gameSettings.gameMode === "wait-for-input") {
