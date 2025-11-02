@@ -35323,7 +35323,8 @@
       if (nextStartTime === void 0) {
         return [];
       }
-      if (nextStartTime < currentTime - _PianoPracticeApp.LOOK_AHEAD_MS) {
+      const isFirstNoteGroup = nextStartTime === 0;
+      if (!isFirstNoteGroup && nextStartTime < currentTime - _PianoPracticeApp.LOOK_AHEAD_MS) {
         this.processedWaitTimings.add(nextStartTime);
         return [];
       }
