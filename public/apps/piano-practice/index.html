@@ -559,7 +559,7 @@
                 <div class="bpm-controls" style="display: flex; align-items: center; gap: 8px;">
                     <label for="bpmSlider" style="color: white; font-size: 12px; width: 40px; text-align: left;">BPM:</label>
                     <button class="btn accent" id="bpmDown" style="padding: 4px 8px; font-size: 12px; min-width: 32px;">-</button>
-                    <input type="range" id="bpmSlider" min="30" max="200" value="120" style="flex: 1;">
+                    <input type="range" id="bpmSlider" min="30" max="300" value="120" style="flex: 1;">
                     <button class="btn accent" id="bpmUp" style="padding: 4px 8px; font-size: 12px; min-width: 32px;">+</button>
                     <span id="bpmDisplay" style="color: white; font-weight: bold; font-size: 12px; width: 40px; text-align: right;">120</span>
                 </div>
@@ -611,10 +611,10 @@
             </div>
 
             <!-- リピート設定とゲームモード -->
-            <div style="display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; max-width: 1000px; margin-left: auto; margin-right: auto;">
+            <div style="display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; max-width: 1200px; margin-left: auto; margin-right: auto;">
                 <!-- 左: リピート設定 -->
                 <div class="partial-repeat-controls" style="flex: 1; padding: 15px; background: rgba(99, 102, 241, 0.1); border-radius: 8px;">
-                    <div style="display: flex; justify-content: center; align-items: flex-start; gap: 20px; flex-wrap: wrap;">
+                    <div style="display: flex; justify-content: center; align-items: flex-start; gap: 15px; flex-wrap: nowrap;">
                         <!-- グループ1: トグル -->
                         <div style="display: flex; flex-direction: column; gap: 10px;">
                             <label class="repeat-toggle-label">
@@ -663,24 +663,42 @@
                         </div>
 
                         <!-- グループ4: クリア -->
-                        <div style="display: flex; flex-direction: column; gap: 10px;">
-                            <button class="btn secondary" id="clearRepeatPoints" style="padding: 8px 16px;">
+                        <div style="display: flex; flex-direction: column; gap: 10px; justify-content: center;">
+                            <button class="btn secondary" id="clearRepeatPoints" style="padding: 8px 16px; white-space: nowrap;">
                                 <i class="fas fa-trash-alt"></i> クリア
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- 右: ゲームモード選択 -->
-                <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 15px; background: rgba(99, 102, 241, 0.1); border-radius: 8px;">
-                    <div class="mode-selector" style="flex-direction: column;">
-                        <button class="mode-option active" data-mode="realtime" id="realtimeMode" style="width: 100%; position: relative;">
-                            🎹 通常モード
-                        </button>
-                        <button class="mode-option" data-mode="wait-for-input" id="waitMode" style="width: 100%; position: relative;">
-                            📚 練習モード
-                            <span class="tooltip">正しい鍵盤を押すまで進行が停止します</span>
-                        </button>
+                <!-- 右: ゲームモード選択と演奏パート選択 -->
+                <div style="display: flex; justify-content: center; align-items: center; padding: 15px; background: rgba(99, 102, 241, 0.1); border-radius: 8px; gap: 15px;">
+                    <div>
+                        <div style="font-size: 12px; color: rgba(255, 255, 255, 0.7); margin-bottom: 8px; text-align: center;">ゲームモード</div>
+                        <div class="mode-selector" style="flex-direction: column;">
+                            <button class="mode-option active" data-mode="realtime" id="realtimeMode" style="width: 100%; position: relative;">
+                                🎹 通常モード
+                            </button>
+                            <button class="mode-option" data-mode="wait-for-input" id="waitMode" style="width: 100%; position: relative;">
+                                📚 練習モード
+                                <span class="tooltip">正しい鍵盤を押すまで進行が停止します</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div style="font-size: 12px; color: rgba(255, 255, 255, 0.7); margin-bottom: 8px; text-align: center;">演奏パート</div>
+                        <div class="mode-selector" style="flex-direction: column;">
+                            <button class="mode-option active" data-hand="both" id="handFilterBoth" style="width: 100%;">
+                                🎼 両手
+                            </button>
+                            <button class="mode-option" data-hand="right" id="handFilterRight" style="width: 100%;">
+                                👉 右手のみ
+                            </button>
+                            <button class="mode-option" data-hand="left" id="handFilterLeft" style="width: 100%;">
+                                👈 左手のみ
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
