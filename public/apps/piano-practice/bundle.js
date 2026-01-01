@@ -1389,8 +1389,16 @@
       this.isInitialized = false;
       // アクティブな音源を追跡して、適切にクリーンアップ
       this.activeOscillators = /* @__PURE__ */ new Set();
+      this.activeBufferSources = /* @__PURE__ */ new Set();
       // 同時発音数の制限（タブレット対応）
       this.MAX_VOICES = 16;
+      // サンプルベースのピアノ音源
+      this.sampleBuffers = /* @__PURE__ */ new Map();
+      this.useSamples = true;
+      // デフォルトでサンプル音源を使用
+      this.samplesLoaded = false;
+      // ピアノサンプルのMIDI番号（C2=24, C3=36, C4=48, C5=60, C6=72, C7=84）
+      this.SAMPLE_NOTES = [24, 36, 48, 60, 72, 84];
     }
     /**
      * Web Audio APIオーディオシステムを初期化
@@ -1405,6 +1413,10 @@
         }
         this.isInitialized = true;
         console.log("Web Audio API initialized successfully");
+        this.loadPianoSamples().catch((error) => {
+          console.warn("Failed to load piano samples, falling back to oscillator:", error);
+          this.useSamples = false;
+        });
       } catch (error) {
         console.error("Failed to initialize Web Audio API:", error);
         this.isInitialized = false;
@@ -1412,12 +1424,130 @@
       }
     }
     /**
-     * 正解時にノートの音程を再生（軽量版）
+     * ピアノサンプルを読み込み
+     */
+    async loadPianoSamples() {
+      if (!this.audioContext) {
+        throw new Error("AudioContext is not initialized");
+      }
+      console.log("Loading piano samples...");
+      const loadPromises = this.SAMPLE_NOTES.map(async (midiNote) => {
+        const octave = Math.floor(midiNote / 12);
+        const url = `/audio/C${octave}v10.mp3`;
+        try {
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
+          }
+          const arrayBuffer = await response.arrayBuffer();
+          const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+          this.sampleBuffers.set(midiNote, audioBuffer);
+          console.log(`Loaded sample: ${url} (MIDI ${midiNote})`);
+        } catch (error) {
+          console.error(`Failed to load sample ${url}:`, error);
+          throw error;
+        }
+      });
+      await Promise.all(loadPromises);
+      this.samplesLoaded = true;
+      console.log("All piano samples loaded successfully");
+    }
+    /**
+     * 指定されたMIDI番号に最も近いサンプルを見つける
+     */
+    findClosestSample(midiNote) {
+      if (this.sampleBuffers.size === 0) {
+        return null;
+      }
+      let closestNote = this.SAMPLE_NOTES[0];
+      let minDistance = Math.abs(midiNote - closestNote);
+      for (const sampleNote of this.SAMPLE_NOTES) {
+        const distance = Math.abs(midiNote - sampleNote);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestNote = sampleNote;
+        }
+      }
+      const detune = (midiNote - closestNote) * 100;
+      return { sampleNote: closestNote, detune };
+    }
+    /**
+     * ノートの音程を再生（サンプルベースまたはオシレーターベース）
      */
     playNoteSound(midiNote, duration = 0.5) {
       if (this.isMuted || !this.isInitialized || !this.audioContext) {
         return;
       }
+      if (this.useSamples && this.samplesLoaded) {
+        this.playSampleNote(midiNote, duration);
+      } else {
+        this.playOscillatorNote(midiNote, duration);
+      }
+    }
+    /**
+     * サンプルベースでノートを再生
+     */
+    playSampleNote(midiNote, duration) {
+      if (!this.audioContext) return;
+      try {
+        if (this.activeBufferSources.size >= this.MAX_VOICES) {
+          console.warn(`Max voices (${this.MAX_VOICES}) reached, skipping note`);
+          return;
+        }
+        const sampleInfo = this.findClosestSample(midiNote);
+        if (!sampleInfo) {
+          console.warn("No sample found, falling back to oscillator");
+          this.playOscillatorNote(midiNote, duration);
+          return;
+        }
+        const audioBuffer = this.sampleBuffers.get(sampleInfo.sampleNote);
+        if (!audioBuffer) {
+          console.warn(`Sample buffer not found for MIDI ${sampleInfo.sampleNote}`);
+          this.playOscillatorNote(midiNote, duration);
+          return;
+        }
+        const currentTime = this.audioContext.currentTime;
+        const source = this.audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        const gainNode = this.audioContext.createGain();
+        source.connect(gainNode);
+        gainNode.connect(this.audioContext.destination);
+        if (source.detune) {
+          source.detune.setValueAtTime(sampleInfo.detune, currentTime);
+        } else {
+          const playbackRate = Math.pow(2, sampleInfo.detune / 1200);
+          source.playbackRate.setValueAtTime(playbackRate, currentTime);
+        }
+        const attackTime = 0.01;
+        const releaseTime = 0.1;
+        const peakVolume = this.volume;
+        gainNode.gain.setValueAtTime(0, currentTime);
+        gainNode.gain.linearRampToValueAtTime(peakVolume, currentTime + attackTime);
+        const actualDuration = Math.min(duration, audioBuffer.duration);
+        if (actualDuration > releaseTime) {
+          gainNode.gain.setValueAtTime(peakVolume, currentTime + actualDuration - releaseTime);
+          gainNode.gain.linearRampToValueAtTime(0, currentTime + actualDuration);
+        } else {
+          gainNode.gain.linearRampToValueAtTime(0, currentTime + actualDuration);
+        }
+        source.start(currentTime);
+        source.stop(currentTime + actualDuration);
+        this.activeBufferSources.add(source);
+        source.onended = () => {
+          source.disconnect();
+          gainNode.disconnect();
+          this.activeBufferSources.delete(source);
+        };
+      } catch (error) {
+        console.error("Failed to play sample note:", error);
+        this.playOscillatorNote(midiNote, duration);
+      }
+    }
+    /**
+     * オシレーターベースでノートを再生（従来の方式）
+     */
+    playOscillatorNote(midiNote, duration) {
+      if (!this.audioContext) return;
       try {
         if (this.activeOscillators.size >= this.MAX_VOICES) {
           console.warn(`Max voices (${this.MAX_VOICES}) reached, skipping note`);
@@ -1447,7 +1577,7 @@
           this.activeOscillators.delete(oscillator);
         };
       } catch (error) {
-        console.error("Failed to play note:", error);
+        console.error("Failed to play oscillator note:", error);
       }
     }
     /**
@@ -1593,6 +1723,19 @@
       }
     }
     /**
+     * サンプル音源とオシレーター音源を切り替え
+     */
+    setUseSamples(useSamples) {
+      this.useSamples = useSamples;
+      console.log(`Audio mode changed to: ${useSamples ? "Sample-based" : "Oscillator-based"}`);
+    }
+    /**
+     * 現在の音源タイプを取得
+     */
+    isUsingSamples() {
+      return this.useSamples && this.samplesLoaded;
+    }
+    /**
      * リソースのクリーンアップ
      */
     destroy() {
@@ -1605,6 +1748,16 @@
           }
         });
         this.activeOscillators.clear();
+        this.activeBufferSources.forEach((source) => {
+          try {
+            source.stop();
+            source.disconnect();
+          } catch (e) {
+          }
+        });
+        this.activeBufferSources.clear();
+        this.sampleBuffers.clear();
+        this.samplesLoaded = false;
         if (this.audioContext) {
           this.audioContext.close();
           this.audioContext = null;
