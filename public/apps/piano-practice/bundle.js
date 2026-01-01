@@ -1433,7 +1433,7 @@
       console.log("Loading piano samples...");
       const loadPromises = this.SAMPLE_NOTES.map(async (midiNote) => {
         const octave = Math.floor(midiNote / 12);
-        const url = `/audio/C${octave}v10.mp3`;
+        const url = `audio/C${octave}v10.mp3`;
         try {
           const response = await fetch(url);
           if (!response.ok) {
