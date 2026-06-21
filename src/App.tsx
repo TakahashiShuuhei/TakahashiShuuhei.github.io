@@ -46,6 +46,10 @@ function App() {
               <a href="#/apps/piano-fig">Piano Figure Generator</a>
               <span className="app-description">ピアノ鍵盤SVG生成ツール</span>
             </li>
+            <li>
+              <a href="#/apps/cable">Cable Occupancy Calculator</a>
+              <span className="app-description">電線管占有率計算アプリ</span>
+            </li>
           </ul>
         </section>
         
