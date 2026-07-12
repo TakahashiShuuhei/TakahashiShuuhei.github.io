@@ -6,11 +6,13 @@ import DemoApp from './pages/DemoApp.tsx'
 import PianoPracticeApp from './pages/PianoPracticeApp.tsx'
 import PianoFigApp from './pages/PianoFigApp.tsx'
 import CableOccupancyApp from './pages/CableOccupancyApp.tsx'
+import { RouteTracker } from './RouteTracker.tsx'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <Router>
+      <RouteTracker />
       <Routes>
         <Route path="/" element={<App />} />
         <Route path="/apps/demo-app" element={<DemoApp />} />
