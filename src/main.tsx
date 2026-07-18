@@ -6,6 +6,7 @@ import DemoApp from './pages/DemoApp.tsx'
 import PianoPracticeApp from './pages/PianoPracticeApp.tsx'
 import PianoFigApp from './pages/PianoFigApp.tsx'
 import CableOccupancyApp from './pages/CableOccupancyApp.tsx'
+import RailsProjApp from './pages/RailsProjApp.tsx'
 import { RouteTracker } from './RouteTracker.tsx'
 import './index.css'
 
@@ -19,6 +20,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <Route path="/apps/piano-practice" element={<PianoPracticeApp />} />
         <Route path="/apps/piano-fig" element={<PianoFigApp />} />
         <Route path="/apps/cable" element={<CableOccupancyApp />} />
+        <Route path="/apps/rails-proj" element={<RailsProjApp />} />
       </Routes>
     </Router>
   </React.StrictMode>,

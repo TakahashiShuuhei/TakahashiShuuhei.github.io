@@ -50,6 +50,10 @@ function App() {
               <a href="#/apps/cable">Cable Occupancy Calculator</a>
               <span className="app-description">電線管占有率計算アプリ</span>
             </li>
+            <li>
+              <a href="#/apps/rails-proj">LINE MA Tool</a>
+              <span className="app-description">LINE公式アカウント向けMAツール</span>
+            </li>
           </ul>
         </section>
         
