@@ -151,6 +151,35 @@ section p {
   letter-spacing: 0.02em;
 }
 
+.screenshot-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 2rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.screenshot-gallery figure {
+  margin: 0;
+}
+
+.screenshot-gallery img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid #eee;
+  background: #fff;
+}
+
+.screenshot-gallery figcaption {
+  font-size: 0.75em;
+  color: #aaa;
+  letter-spacing: 0.02em;
+  margin-top: 0.6rem;
+  line-height: 1.5;
+}
+
 .contact {
   position: relative;
 }
