@@ -35,10 +35,6 @@ function App() {
           <h2>Apps</h2>
           <ul>
             <li>
-              <a href="#/apps/demo-app">Demo App</a>
-              <span className="app-description">デモのアプリ</span>
-            </li>
-            <li>
               <a href="#/apps/piano-practice">Piano Practice App</a>
               <span className="app-description">ピアノ練習支援アプリ</span>
             </li>
@@ -53,6 +49,14 @@ function App() {
             <li>
               <a href="#/apps/rails-proj">LINE MA Tool</a>
               <span className="app-description">LINE公式アカウント向けMAツール</span>
+            </li>
+            <li>
+              <a href="#/apps/mp">mp</a>
+              <span className="app-description">語学学習・音楽練習向け動画再生Androidアプリ</span>
+            </li>
+            <li>
+              <a href="#/apps/readable">Readable</a>
+              <span className="app-description">読みにくいログ文字列を整形するVSCode拡張</span>
             </li>
           </ul>
         </section>
