@@ -8,6 +8,7 @@ import CableOccupancyApp from './pages/CableOccupancyApp.tsx'
 import RailsProjApp from './pages/RailsProjApp.tsx'
 import MpApp from './pages/MpApp.tsx'
 import ReadableApp from './pages/ReadableApp.tsx'
+import ChpathApp from './pages/ChpathApp.tsx'
 import { RouteTracker } from './RouteTracker.tsx'
 import './index.css'
 
@@ -23,6 +24,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <Route path="/apps/rails-proj" element={<RailsProjApp />} />
         <Route path="/apps/mp" element={<MpApp />} />
         <Route path="/apps/readable" element={<ReadableApp />} />
+        <Route path="/apps/chpath" element={<ChpathApp />} />
       </Routes>
     </Router>
   </React.StrictMode>,

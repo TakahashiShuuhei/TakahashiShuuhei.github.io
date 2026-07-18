@@ -58,6 +58,10 @@ function App() {
               <a href="#/apps/readable">Readable</a>
               <span className="app-description">読みにくいログ文字列を整形するVSCode拡張</span>
             </li>
+            <li>
+              <a href="#/apps/chpath">chpath</a>
+              <span className="app-description">文字を直線・円弧の描画コマンドに変換するツール</span>
+            </li>
           </ul>
         </section>
         
