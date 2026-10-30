@@ -468,36 +468,43 @@ function statsCard() {
   for (const mode of Object.keys(MODES)) {
     const by = new Map();
     for (const a of db.answers) if (a.mode === mode) {
-      const s = by.get(a.key) ?? { n: 0, ok: 0, start: new Map(), wrong: new Map() };
+      const s = by.get(a.key) ?? { n: 0, ok: 0, plays: 0, pn: 0, start: new Map(), wrong: new Map() };
       s.n++;
+      if (a.plays != null) { s.plays += a.plays; s.pn++; }   // 聞いた回数は途中から記録を始めたので、無い回答もある
       if (a.correct) s.ok++; else s.wrong.set(a.answer, (s.wrong.get(a.answer) ?? 0) + 1);
       if (a.notes?.length) {
-        const pc = ((a.notes[0] % 12) + 12) % 12, c = s.start.get(pc) ?? { n: 0, ok: 0 };
+        const pc = ((a.notes[0] % 12) + 12) % 12, c = s.start.get(pc) ?? { n: 0, ok: 0, plays: 0, pn: 0 };
         c.n++; if (a.correct) c.ok++;
+        if (a.plays != null) { c.plays += a.plays; c.pn++; }
         s.start.set(pc, c);
       }
       by.set(a.key, s);
     }
     if (!by.size) continue;
     card.append(h("h3", {}, MODES[mode].title));
-    for (const [key, s] of [...by].sort((a, b) => a[1].ok / a[1].n - b[1].ok / b[1].n || b[1].n - a[1].n)) card.append(statRow(mode, key, s));
+    // 苦手な順: 正答率が低い、同じなら聞き直しが多い
+    for (const [key, s] of [...by].sort((a, b) => a[1].ok / a[1].n - b[1].ok / b[1].n || (avgPlays(b[1]) ?? 0) - (avgPlays(a[1]) ?? 0) || b[1].n - a[1].n)) card.append(statRow(mode, key, s));
   }
   card.append(h("div", { class: "bar", style: "margin-top:12px" }, h("button", { onclick: exportJson }, "JSONで書き出す")));
   return card;
 }
+const avgPlays = (s) => (s.pn ? s.plays / s.pn : null);   // 答えるまでに聞いた回数の平均
 // 音程(パターン)ごとの行。開くと、出題の1音目ごとの正解数と、間違えたときの答えが見られる
 function statRow(mode, key, s) {
   const wrong = [...s.wrong].sort((a, b) => b[1] - a[1]).map(([k, c]) => `${keyLabel(k)} ×${c}`);
   const cells = SHARP.map((name, pc) => {
     const c = s.start.get(pc);
-    const bg = c ? `background:color-mix(in srgb, var(--ng) ${Math.round((1 - c.ok / c.n) * 70)}%, var(--ok-bg))` : "";
-    return h("div", { class: "cell", style: bg }, h("b", {}, name), h("small", {}, c ? `${c.ok}/${c.n}` : "–"));
+    // 赤さ = 誤答の割合 + 聞き直しの多さ(平均1回なら0、1回増えるごとに +15%)
+    const trouble = c ? Math.min(1, 1 - c.ok / c.n + 0.15 * Math.max(0, (avgPlays(c) ?? 1) - 1)) : 0;
+    const bg = c ? `background:color-mix(in srgb, var(--ng) ${Math.round(trouble * 70)}%, var(--ok-bg))` : "";
+    return h("div", { class: "cell", style: bg }, h("b", {}, name), h("small", {}, c ? `${c.ok}/${c.n}` : "–"),
+      c && avgPlays(c) != null ? h("small", {}, `♪${avgPlays(c).toFixed(1)}回`) : "");
   });
   return h("details", { class: "stat" },
     h("summary", {}, h("span", {}, keyLabel(key)),
-      h("span", {}, `${s.ok}/${s.n}  ${Math.round((s.ok / s.n) * 100)}%`)),
+      h("span", {}, `${s.ok}/${s.n}  ${Math.round((s.ok / s.n) * 100)}%` + (avgPlays(s) != null ? `  ♪${avgPlays(s).toFixed(1)}回` : ""))),
     h("p", { class: "muted", style: "margin:6px 0" }, wrong.length ? `間違えた答え: ${wrong.join("、")}` : "まだ間違えていません"),
-    h("div", { class: "muted" }, "1音目ごとの正解数(赤いほどよく間違える)"),
+    h("div", { class: "muted" }, "1音目ごとの正解数と、答えるまでに聞いた平均回数(赤いほど苦手: 間違いや聞き直しが多い)"),
     h("div", { class: "cells" }, cells));
 }
 function exportJson() {
@@ -573,7 +580,9 @@ function nextQuestion() {
   const feedback = h("div", {});
   const btns = q.choices.map((k, i) => h("button", { class: "choice", onclick: () => answer(i) },
     h("span", { class: "kb" }, String(i + 1)), keyLabel(k), h("small", {}, k.split(",").map((x) => signed(+x)).join(", "))));
-  const replay = () => playSeq(q.pitches, els);
+  // 出題音を聞いた回数(最初の自動再生を含む)。答えるまでの分だけ数える
+  let plays = 0;
+  const replay = () => { if (!qstate?.answered) plays++; playSeq(q.pitches, els); };
   const panel = favoritePanel(q.choices);
   // 次へは結果の隣に固定(例が増えても押しやすい位置)。答えるまでは押せない
   const nextBtn = h("button", { class: "primary", disabled: true, onclick: nextQuestion }, "次の問題 →");
@@ -591,15 +600,16 @@ function nextQuestion() {
       else if (j === i) b.classList.add("ng");
     });
     reveal();
-    db.answers.push({ ts: new Date().toISOString(), mode: quiz.mode, level: quiz.level, key: q.key, answer: picked, correct: ok, notes: q.pitches, choices: q.choices, ms: Date.now() - q.shownAt });
+    db.answers.push({ ts: new Date().toISOString(), mode: quiz.mode, level: quiz.level, key: q.key, answer: picked, correct: ok, notes: q.pitches, choices: q.choices, plays, ms: Date.now() - q.shownAt });
     saveDb();
-    quiz.answers.push({ key: q.key, answer: picked, correct: ok, notes: q.pitches, ms: Date.now() - q.shownAt });
+    quiz.answers.push({ key: q.key, answer: picked, correct: ok, notes: q.pitches, plays, ms: Date.now() - q.shownAt });
     quiz.idx++; if (ok) quiz.correct++;
     card.classList.add(ok ? "ok" : "ng");
     banner.replaceChildren(
       h("div", { class: "verdict" }, ok ? "◯ 正解!" : "✕ 不正解"),
       h("div", {}, `${names().join("→")} は ${keyLabel(q.key)}`),
-      ok ? "" : h("div", { class: "muted" }, `あなたの答え: ${keyLabel(picked)}`));
+      ok ? "" : h("div", { class: "muted" }, `あなたの答え: ${keyLabel(picked)}`),
+      h("div", { class: "muted" }, `聞いた回数: ${plays}回`));
     nextBtn.disabled = false;
     nextBtn.textContent = (quiz.idx >= SESSION ? "結果を見る" : "次の問題 →") + " (Enter)";
     feedback.replaceChildren(

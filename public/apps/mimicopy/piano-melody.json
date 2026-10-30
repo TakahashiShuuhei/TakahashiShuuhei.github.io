@@ -14651,5 +14651,63 @@
       "melody"
     ],
     "createdAt": "2026-10-30T07:11:56.586Z"
+  },
+  {
+    "id": "rTLx53pu4KReWtWCYooD",
+    "type": "piano.melody",
+    "schemaVersion": 1,
+    "data": {
+      "melodyId": "ab986f88-e2b3-4fee-b3ec-324c0c5674f0",
+      "name": "蛍の光",
+      "memo": "",
+      "notes": [
+        {
+          "pitch": 60,
+          "start": 0,
+          "dur": 300
+        },
+        {
+          "pitch": 65,
+          "start": 490,
+          "dur": 450
+        },
+        {
+          "pitch": 65,
+          "start": 1120,
+          "dur": 100
+        },
+        {
+          "pitch": 65,
+          "start": 1410,
+          "dur": 320
+        },
+        {
+          "pitch": 69,
+          "start": 1920,
+          "dur": 330
+        },
+        {
+          "pitch": 67,
+          "start": 2370,
+          "dur": 530
+        },
+        {
+          "pitch": 65,
+          "start": 3030,
+          "dur": 140
+        },
+        {
+          "pitch": 67,
+          "start": 3300,
+          "dur": 250
+        }
+      ],
+      "synth": "sawtooth"
+    },
+    "tags": [
+      "piano",
+      "melody"
+    ],
+    "createdAt": "2026-10-30T09:32:54.996Z"
   }
 ]
