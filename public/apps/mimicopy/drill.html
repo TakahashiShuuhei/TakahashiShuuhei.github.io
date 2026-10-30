@@ -73,6 +73,10 @@
   .cells { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 4px; margin: 6px 0; }
   .cell { border: 1px solid var(--line); border-radius: 6px; text-align: center; padding: 4px 2px; }
   .cell small { display: block; color: var(--muted); }
+  .star { padding: 0 8px; font-size: 18px; line-height: 1.4; }
+  .star.on { color: #e0a800; }
+  .favrow { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; padding: 5px 0; border-top: 1px solid var(--line); }
+  .favchip { background: var(--accent-bg); color: var(--accent); border-radius: 12px; padding: 0 10px; font-size: 13px; }
   .score { font-size: 40px; font-weight: 700; text-align: center; }
 </style>
 </head>
@@ -143,6 +147,7 @@ function freshDb() {
     seenIntro: {},
     settings: { ms: 450 },
     outbox: [],   // life に未送信のセッションログ
+    favorites: {},   // 音程(パターン)の key -> [{id: melodyId, i: 曲中の位置}]。思い出すのに使える曲
   };
 }
 function loadDb() {
@@ -154,6 +159,7 @@ function loadDb() {
       db.answers = (s.answers ?? []).map((a) => (a.mode === "pattern" ? { ...a, mode: "pattern-" + shapeOf(a.key) } : a));
       db.seenIntro = s.seenIntro ?? {};
       db.outbox = s.outbox ?? [];
+      db.favorites = s.favorites ?? {};
       Object.assign(db.settings, s.settings);
       for (const m of MODE_IDS) Object.assign(db.progress[m], s.progress?.[m]);
     }
@@ -204,6 +210,7 @@ const sendStatus = (r) => (r.left ? `未送信 ${r.left}件(${r.message})` : r.s
 
 // ---- データ ----
 let melodies = [];
+let melodyById = new Map();
 let occ1 = new Map();   // 音程(半音数) -> [{m, i}]  i はメロディ中の1音目の添字
 let occ2 = new Map();   // "a,b"        -> [{m, i}]
 let groups = [];        // 3音パターンを形ごとに頻出順に並べたもの(同音を含むものは除く)
@@ -214,8 +221,9 @@ function load(raw) {
   melodies = raw.map((item, no) => {
     const d = item.data;
     const notes = [...d.notes].sort((a, b) => a.start - b.start);
-    return { no, label: d.name + (d.memo ? `(${d.memo})` : ""), notes };
+    return { no, id: d.melodyId ?? item.id, label: d.name + (d.memo ? `(${d.memo})` : ""), notes };
   });
+  melodyById = new Map(melodies.map((m) => [m.id, m]));
   occ1 = new Map(); occ2 = new Map();
   for (const m of melodies) {
     const p = m.notes.map((n) => n.pitch);
@@ -332,17 +340,60 @@ let quiz = null, qstate = null;
 function view(...kids) {
   stop();
   qstate = null;
+  favRedraw = null;
   app.replaceChildren(...kids);
   window.scrollTo(0, 0);
 }
 
-// 曲中の該当箇所(i から n 個の音程)を含む行。部分と曲を鳴らせる
-function exampleRow(o, n) {
+// ---- お気に入り(「この音程を思い出すのに使える曲」) ----
+// db.favorites[key] = [{id: melodyId, i: 曲中の該当箇所の1音目の添字}]。曲の追加・差し替えで合わなくなったものは無視する
+let favRedraw = null;   // いま表示中の「お気に入り」パネルの再描画(お気に入りを変えたときに呼ぶ)
+function occKey(m, i, n) {
+  const p = m.notes.map((x) => x.pitch);
+  if (i + n >= p.length) return null;
+  return p.slice(i, i + n + 1).slice(1).map((v, k) => v - p[i + k]).join(",");
+}
+function favOccs(key) {
+  const n = key.split(",").length, out = [];
+  for (const f of db.favorites[key] ?? []) {
+    const m = melodyById.get(f.id);
+    if (m && occKey(m, f.i, n) === key) out.push({ m, i: f.i });
+  }
+  return out.sort((a, b) => (b.i === 0) - (a.i === 0));   // 先頭で始まるものを前に
+}
+const isFav = (key, o) => (db.favorites[key] ?? []).some((f) => f.id === o.m.id && f.i === o.i);
+function toggleFav(key, o) {
+  const list = db.favorites[key] ??= [];
+  const idx = list.findIndex((f) => f.id === o.m.id && f.i === o.i);
+  if (idx >= 0) list.splice(idx, 1); else list.push({ id: o.m.id, i: o.i });
+  saveDb();
+  favRedraw?.();
+}
+// ゲーム画面の最下部。選択肢の音程ごとに、お気に入りの曲を表示するだけ
+function favoritePanel(choices) {
+  const box = h("section", { class: "card" });
+  box.draw = () => box.replaceChildren(
+    h("h3", { style: "margin-top:0" }, "お気に入りの曲(思い出す手がかり)"),
+    ...choices.map((k) => {
+      const favs = favOccs(k);
+      return h("div", { class: "favrow" }, h("b", {}, keyLabel(k)),
+        ...(favs.length ? favs.map((o) => h("span", { class: "favchip" }, o.m.label + (o.i === 0 ? "・先頭" : ""))) : [h("span", { class: "muted" }, "未設定")]));
+    }));
+  box.draw();
+  return box;
+}
+
+// 曲中の該当箇所(i から n 個の音程)を含む行。★でお気に入り登録、曲を鳴らせる
+function exampleRow(o, n, key) {
   const els = o.m.notes.map((nt, k) => h("span", { class: "n" + (k >= o.i && k <= o.i + n ? " hit" : "") }, spell(nt.pitch, false)));
   const ctx = h("div", { class: "ctx" });
   els.forEach((el, k) => ctx.append(el, k < els.length - 1 ? " " : ""));
+  const star = h("button", { class: "star", title: "この音程を思い出すのに使える曲として登録", onclick: () => { toggleFav(key, o); paint(); } });
+  const paint = () => { const on = isFav(key, o); star.textContent = on ? "★" : "☆"; star.classList.toggle("on", on); };
+  paint();
   return h("div", { class: "ex" },
     h("div", { class: "top" },
+      star,
       h("button", { onclick: () => playMelody(o.m, els) }, "▶ 曲"),
       h("button", { onclick: () => playMelody(o.m, els, randomShift(o.m)) }, "🎲 ランダムキー"),
       o.i === 0 ? h("span", { class: "badge" }, "先頭") : "",
@@ -359,14 +410,19 @@ function pickExamples(list, count) {
   const all = [...byMelody.values()];
   return [...all.filter((o) => o.i === 0), ...all.filter((o) => o.i !== 0)].slice(0, count);
 }
-function examples(mode, key, count, title) {
+// お気に入りを先に出し、残りをランダムに足す。browse なら、お気に入り全部に加えて count 件を出す(確認画面用)
+function examples(mode, key, count, title, { browse = false } = {}) {
   const list = MODES[mode].occ().get(key) ?? [];
   const n = key.split(",").length;
   const box = h("div", {});
   const draw = () => {
+    const favs = favOccs(key), shownFavs = browse ? favs : favs.slice(0, count);
+    const taken = new Set(shownFavs.map((o) => o.m.id));
+    const rest = pickExamples(list.filter((o) => !taken.has(o.m.id)), browse ? count : count - shownFavs.length);
+    const rows = [...shownFavs, ...rest];
     box.replaceChildren(
       h("div", { class: "bar" }, h("h3", { class: "grow" }, title), h("button", { onclick: () => { stop(); draw(); } }, "別の例")),
-      ...(list.length ? pickExamples(list, count).map((o) => exampleRow(o, n)) : [h("p", { class: "muted" }, "データに例がありません")]));
+      ...(rows.length ? rows.map((o) => exampleRow(o, n, key)) : [h("p", { class: "muted" }, "データに例がありません")]));
   };
   draw();
   return box;
@@ -445,31 +501,42 @@ function statRow(mode, key, s) {
     h("div", { class: "cells" }, cells));
 }
 function exportJson() {
-  const data = { exportedAt: new Date().toISOString(), progress: db.progress, settings: db.settings, answers: db.answers };
+  const data = { exportedAt: new Date().toISOString(), progress: db.progress, settings: db.settings, favorites: db.favorites, answers: db.answers };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const a = h("a", { href: URL.createObjectURL(blob), download: `mimicopy-drill-${data.exportedAt.slice(0, 10)}.json` });
   document.body.append(a); a.click(); a.remove();
 }
 
 // ---- レベル開始前の確認画面 ----
+function keyCard(mode, key) {
+  const ref = pitchesOf(key, 60);
+  const els = ref.map((p) => h("span", { class: "n" }, spell(p, key.split(",").map(Number).find((v) => v !== 0) < 0)));
+  const names = h("span", { class: "big", style: "padding:0;font-size:20px" });
+  els.forEach((el, k) => names.append(el, k < els.length - 1 ? h("span", { class: "arrow" }, "→") : ""));
+  return h("section", { class: "card" },
+    h("div", { class: "bar" }, h("h2", { class: "grow", style: "margin:0" }, keyLabel(key), h("small", { class: "muted" }, `  (${key})`)),
+      names, h("button", { onclick: () => playSeq(ref, els) }, "▶ ドから鳴らす")),
+    examples(mode, key, 3, "この進行を使っている曲", { browse: true }));
+}
 function showIntro(mode, L) {
   const M = MODES[mode];
   db.seenIntro[mode + L] = true; saveDb();
+  const fresh = M.newKeys(L), others = M.keys(L).filter((k) => !fresh.includes(k));
   const kids = [
     h("div", { class: "bar" }, h("h2", { class: "grow" }, `Lv${L} 新しく加わる${M.noun}`)),
     h("div", { class: "chips" }, h("span", { class: "muted" }, "出題範囲:"), M.keys(L).map((k) => h("span", { class: "chip" }, keyLabel(k)))),
+    h("p", { class: "muted", style: "margin:0 0 10px" }, "思い出すのに使える曲は ☆ で登録できます。登録した曲は、問題画面の最下部に表示されます。"),
+    ...fresh.map((key) => keyCard(mode, key)),
   ];
-  for (const key of M.newKeys(L)) {
-    const ref = pitchesOf(key, 60);
-    const els = ref.map((p, k) => h("span", { class: "n" }, spell(p, key.split(",").map(Number).find((v) => v !== 0) < 0)));
-    const names = h("span", { class: "big", style: "padding:0;font-size:20px" });
-    els.forEach((el, k) => names.append(el, k < els.length - 1 ? h("span", { class: "arrow" }, "→") : ""));
-    kids.push(h("section", { class: "card" },
-      h("div", { class: "bar" }, h("h2", { class: "grow", style: "margin:0" }, keyLabel(key), h("small", { class: "muted" }, `  (${key})`)),
-        names, h("button", { onclick: () => playSeq(ref, els) }, "▶ ドから鳴らす")),
-      examples(mode, key, 3, "この進行を使っている曲")));
+  if (others.length) {
+    kids.push(h("h3", {}, "このレベルの他の音程(お気に入りの設定だけしたいとき)"));
+    for (const key of others) {
+      const d = h("details", { class: "stat" }, h("summary", {}, keyLabel(key)));
+      d.addEventListener("toggle", () => { if (d.open && !d.dataset.built) { d.dataset.built = "1"; d.append(keyCard(mode, key)); } });
+      kids.push(d);
+    }
   }
-  kids.push(h("div", { class: "bar" },
+  kids.push(h("div", { class: "bar", style: "margin-top:12px" },
     h("button", { class: "primary", onclick: () => startQuiz(mode, L) }, `Lv${L} を開始`),
     h("button", { onclick: showHome }, "ホームへ")));
   view(...kids);
@@ -507,6 +574,7 @@ function nextQuestion() {
   const btns = q.choices.map((k, i) => h("button", { class: "choice", onclick: () => answer(i) },
     h("span", { class: "kb" }, String(i + 1)), keyLabel(k), h("small", {}, k.split(",").map((x) => signed(+x)).join(", "))));
   const replay = () => playSeq(q.pitches, els);
+  const panel = favoritePanel(q.choices);
   // 次へは結果の隣に固定(例が増えても押しやすい位置)。答えるまでは押せない
   const nextBtn = h("button", { class: "primary", disabled: true, onclick: nextQuestion }, "次の問題 →");
   const card = h("section", { class: "card qcard" },
@@ -546,7 +614,9 @@ function nextQuestion() {
       h("button", { onclick: showHome }, "中止")),
     card,
     h("div", { class: "choices" }, btns),
-    feedback);
+    feedback,
+    panel);
+  favRedraw = panel.draw;
   qstate = { answered: false, pick: (i) => i < btns.length && answer(i), next: nextQuestion, replay };
   replay();
 }
