@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>音程ドリル</title>
+<style>
+  :root {
+    --bg: #fafaf8; --fg: #1f2328; --muted: #6b7280; --line: #e2e2dc;
+    --panel: #fff; --accent: #2457c5; --accent-bg: #e8effc; --hit: #fff3c4;
+    --ok: #1a7f4b; --ok-bg: #e3f4ea; --ng: #c0392b; --ng-bg: #fbe7e4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181c; --fg: #e6e6e3; --muted: #9aa0a8; --line: #2d3138;
+      --panel: #1e2126; --accent: #7aa2f7; --accent-bg: #26324d; --hit: #4a4220;
+      --ok: #5fd08f; --ok-bg: #1c3a2b; --ng: #ff8a7a; --ng-bg: #43211e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
+  header { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; align-items: baseline; }
+  header h1 { font-size: 16px; margin: 0; }
+  header a { color: var(--accent); font-size: 14px; }
+  #app { max-width: 760px; margin: 0 auto; padding: 16px; }
+  h2 { font-size: 17px; margin: 0 0 10px; }
+  h3 { font-size: 15px; margin: 14px 0 6px; }
+  select, input[type=number], button { font: inherit; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; }
+  button { cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .muted { color: var(--muted); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 10px; }
+  .bar .grow { flex: 1; }
+  .lv { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); }
+  .lv:first-of-type { border-top: 0; }
+  .lv.locked { opacity: .5; }
+  .btns { display: flex; gap: 6px; flex-shrink: 0; }
+  .big { font-size: 34px; font-weight: 700; text-align: center; padding: 18px 0; letter-spacing: .02em; }
+  .big .arrow { color: var(--muted); font-weight: 400; padding: 0 8px; }
+  .n { border-radius: 4px; padding: 0 3px; }
+  .n.hit { background: var(--hit); }
+  .n.now { background: var(--accent); color: #fff; }
+  .choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .choice { padding: 12px 8px; text-align: center; position: relative; font-size: 16px; }
+  .choice small { display: block; color: var(--muted); font-size: 12px; }
+  .choice .kb { position: absolute; left: 6px; top: 2px; font-size: 11px; color: var(--muted); }
+  .choice.ok { background: var(--ok-bg); border-color: var(--ok); }
+  .choice.ng { background: var(--ng-bg); border-color: var(--ng); }
+  .result { font-size: 18px; font-weight: 700; margin: 14px 0 4px; }
+  .result.ok { color: var(--ok); }
+  .result.ng { color: var(--ng); }
+  .ex { border-top: 1px solid var(--line); padding: 8px 0; }
+  .ex .top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .ex .ctx { margin-top: 4px; color: var(--muted); font-size: 13px; word-break: break-all; }
+  .badge { font-size: 12px; background: var(--accent-bg); color: var(--accent); border-radius: 4px; padding: 0 6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .chip { background: var(--accent-bg); color: var(--accent); border-radius: 12px; padding: 0 10px; font-size: 13px; }
+  .qcard.ok { background: var(--ok-bg); border: 2px solid var(--ok); }
+  .qcard.ng { background: var(--ng-bg); border: 2px solid var(--ng); }
+  .banner { min-height: 62px; text-align: center; }
+  .verdict { font-size: 26px; font-weight: 800; }
+  .qcard.ok .verdict { color: var(--ok); }
+  .qcard.ng .verdict { color: var(--ng); }
+  .choice.ok, .choice.ng { border-width: 2px; font-weight: 700; }
+  .choice.ok:disabled, .choice.ng:disabled { opacity: 1; }
+  .choice.ok::after { content: "✓"; position: absolute; right: 8px; top: 4px; color: var(--ok); font-weight: 800; }
+  .choice.ng::after { content: "✕"; position: absolute; right: 8px; top: 4px; color: var(--ng); font-weight: 800; }
+  .stat { border-top: 1px solid var(--line); padding: 6px 0; font-variant-numeric: tabular-nums; }
+  .stat summary { display: flex; justify-content: space-between; gap: 12px; cursor: pointer; }
+  .cells { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 4px; margin: 6px 0; }
+  .cell { border: 1px solid var(--line); border-radius: 6px; text-align: center; padding: 4px 2px; }
+  .cell small { display: block; color: var(--muted); }
+  .score { font-size: 40px; font-weight: 700; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>音程ドリル</h1>
+  <a href="index.html">音程ビューア</a>
+  <span id="loadmsg" class="muted"></span>
+</header>
+<div id="app"><p class="muted">読み込み中…</p></div>
+
+<script>
+// ---- 定数 ----
+const SESSION = 10;                 // 1セッションの問題数
+const PASS = 0.8;                   // この正答率で次のレベルが解放される
+const INTERVAL_STEPS = [1, 2, 3, 4, 5, 7]; // 2音ドリルのレベルごとに加わる音程(半音数。上下とも)
+const PATTERN_PER_GROUP = 6;        // 3音ドリルで「形」ごとに出題対象にするパターン数の上限
+// 3音の「形」。形だけで当たらないよう、選択肢は同じ形のパターンの中から出す
+const SHAPES = [
+  { id: "down", name: "単純下降" },
+  { id: "up", name: "単純上昇" },
+  { id: "peak", name: "真ん中が高い" },
+  { id: "valley", name: "真ん中が低い" },
+];
+function shapeOf(key) {
+  const [a, b] = key.split(",").map(Number);
+  return a < 0 && b < 0 ? "down" : a > 0 && b > 0 ? "up" : a > 0 ? "peak" : "valley";
+}
+const MODE_IDS = ["interval", ...SHAPES.map((s) => "pattern-" + s.id)];
+const SHORT = ["同音", "半音", "全音", "短3度", "長3度", "完全4度", "増4度", "完全5度", "短6度", "長6度", "短7度", "長7度", "オクターブ"];
+const SHARP = ["ド", "ド♯", "レ", "レ♯", "ミ", "ファ", "ファ♯", "ソ", "ソ♯", "ラ", "ラ♯", "シ"];
+const FLAT = ["ド", "レ♭", "レ", "ミ♭", "ミ", "ファ", "ソ♭", "ソ", "ラ♭", "ラ", "シ♭", "シ"];
+const STORE = "mimicopy.drill.v1";
+const KEY_STORE = "mimicopy.lifeApiKey";   // life API のキー。リポジトリには含めず、端末の localStorage にだけ置く
+const LOGS_URL = "https://life-log-api-518385116466.asia-northeast1.run.app/logs";
+const SEND_TIMEOUT_MS = 8000;
+
+const $ = (id) => document.getElementById(id);
+const app = $("app");
+const rand = (n) => Math.floor(Math.random() * n);
+const shuffle = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = rand(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const spell = (p, flat) => (flat ? FLAT : SHARP)[((p % 12) + 12) % 12];
+const signed = (v) => (v > 0 ? "+" : "") + v;
+
+function h(tag, attrs = {}, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v === false || v == null) continue;
+    if (k === "class") el.className = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const k of kids.flat()) el.append(k);
+  return el;
+}
+
+function ivLabel(v) {
+  const a = Math.abs(v), base = a <= 12 ? SHORT[a] : `${a}半音`;
+  return v === 0 ? base : base + (v > 0 ? "上" : "下");
+}
+const keyLabel = (key) => key.split(",").map((x) => ivLabel(+x)).join(" → ");
+
+// ---- 保存(localStorage。使えない環境ではメモリのみ) ----
+function freshDb() {
+  return {
+    answers: [],
+    progress: Object.fromEntries(MODE_IDS.map((m) => [m, { unlocked: 1, best: {} }])),
+    seenIntro: {},
+    settings: { ms: 450 },
+    outbox: [],   // life に未送信のセッションログ
+  };
+}
+function loadDb() {
+  const db = freshDb();
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE));
+    if (s) {
+      // 3音を形ごとの項目に分ける前の回答は、形に応じた項目へ振り分ける(進捗は引き継がない)
+      db.answers = (s.answers ?? []).map((a) => (a.mode === "pattern" ? { ...a, mode: "pattern-" + shapeOf(a.key) } : a));
+      db.seenIntro = s.seenIntro ?? {};
+      db.outbox = s.outbox ?? [];
+      Object.assign(db.settings, s.settings);
+      for (const m of MODE_IDS) Object.assign(db.progress[m], s.progress?.[m]);
+    }
+  } catch {}
+  return db;
+}
+function saveDb() { try { localStorage.setItem(STORE, JSON.stringify(db)); } catch {} }
+const db = loadDb();
+
+// ---- life API への送信 ----
+const getKey = () => { try { return localStorage.getItem(KEY_STORE) ?? ""; } catch { return ""; } };
+const setKey = (v) => { try { localStorage.setItem(KEY_STORE, v); } catch {} };
+const newId = () => crypto.randomUUID?.() ?? Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+async function postLog(apiKey, entry) {
+  try {
+    const res = await fetch(LOGS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+      body: JSON.stringify(entry),
+      signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+    });
+    if (res.ok) return { ok: true };
+    if (res.status === 401) return { ok: false, message: "APIキーが違います (401)" };
+    return { ok: false, message: `送信に失敗しました (${res.status})` };
+  } catch {
+    return { ok: false, message: "通信に失敗しました" };
+  }
+}
+// 未送信のセッションログを古い順に送る。失敗したら残して止める
+let flushing = null;
+async function flushOutbox() {
+  if (flushing) return flushing;
+  flushing = (async () => {
+    const key = getKey();
+    if (!key) return { sent: 0, left: db.outbox.length, message: "APIキーが未設定です" };
+    let sent = 0, message = "";
+    while (db.outbox.length) {
+      const r = await postLog(key, db.outbox[0]);
+      if (!r.ok) { message = r.message; break; }
+      db.outbox.shift(); sent++; saveDb();
+    }
+    return { sent, left: db.outbox.length, message };
+  })();
+  try { return await flushing; } finally { flushing = null; }
+}
+const sendStatus = (r) => (r.left ? `未送信 ${r.left}件(${r.message})` : r.sent ? "life に送信しました" : "未送信なし");
+
+// ---- データ ----
+let melodies = [];
+let occ1 = new Map();   // 音程(半音数) -> [{m, i}]  i はメロディ中の1音目の添字
+let occ2 = new Map();   // "a,b"        -> [{m, i}]
+let groups = [];        // 3音パターンを形ごとに頻出順に並べたもの(同音を含むものは除く)
+
+function addTo(map, key, v) { if (!map.has(key)) map.set(key, []); map.get(key).push(v); }
+
+function load(raw) {
+  melodies = raw.map((item, no) => {
+    const d = item.data;
+    const notes = [...d.notes].sort((a, b) => a.start - b.start);
+    return { no, label: d.name + (d.memo ? `(${d.memo})` : ""), notes };
+  });
+  occ1 = new Map(); occ2 = new Map();
+  for (const m of melodies) {
+    const p = m.notes.map((n) => n.pitch);
+    for (let i = 0; i + 1 < p.length; i++) {
+      addTo(occ1, String(p[i + 1] - p[i]), { m, i });
+      if (i + 2 < p.length) addTo(occ2, `${p[i + 1] - p[i]},${p[i + 2] - p[i + 1]}`, { m, i });
+    }
+  }
+  const ranked = [...occ2].filter(([k]) => !k.split(",").includes("0"))
+    .sort((a, b) => b[1].length - a[1].length).map(([k]) => k);
+  groups = SHAPES.map((s) => ({ ...s, keys: ranked.filter((k) => shapeOf(k) === s.id).slice(0, PATTERN_PER_GROUP) }));
+  $("loadmsg").textContent = `${melodies.length}メロディ`;
+  showHome();
+}
+
+// 出題モード。key は音程なら "2"、3音パターンなら "-2,-2"
+const MODES = {
+  interval: {
+    title: "2音:音程を答える",
+    short: "2音 音程",
+    maxLevel: () => INTERVAL_STEPS.length,
+    newKeys: (L) => [String(INTERVAL_STEPS[L - 1]), String(-INTERVAL_STEPS[L - 1])],
+    keys(L) { return Array.from({ length: L }, (_, i) => this.newKeys(i + 1)).flat(); },
+    levelText: (L) => `${SHORT[INTERVAL_STEPS[L - 1]]}の上・下`,
+    noun: "音程",
+    occ: () => occ1,
+  },
+  // 3音は形(下降・上昇など)ごとに別の項目。レベルが上がると、その形の頻出パターンが1つずつ加わる
+  ...Object.fromEntries(SHAPES.map((shape) => ["pattern-" + shape.id, patternMode(shape)])),
+};
+function patternMode(shape) {
+  const keysOf = () => groups.find((g) => g.id === shape.id).keys;
+  return {
+    title: `3音:${shape.name}`,
+    short: `3音 ${shape.name}`,
+    maxLevel: () => Math.max(0, keysOf().length - 1),
+    newKeys: (L) => (L === 1 ? keysOf().slice(0, 2) : [keysOf()[L]]),
+    keys: (L) => keysOf().slice(0, L + 1),
+    levelText(L) { return "追加: " + this.newKeys(L).map(keyLabel).join(" / "); },
+    noun: "パターン",
+    occ: () => occ2,
+  };
+}
+
+function pitchesOf(key, start) {
+  const out = [start];
+  for (const v of key.split(",")) out.push(out[out.length - 1] + Number(v));
+  return out;
+}
+
+// ---- 音(index.html と同じ作り) ----
+let audio = null, active = [], timers = [];
+function ac() {
+  audio ??= new AudioContext();
+  if (audio.state === "suspended") audio.resume();
+  return audio;
+}
+function tone(pitch, t, dur) {
+  const c = ac();
+  const o = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain();
+  o.type = "sawtooth";
+  o.frequency.value = 440 * 2 ** ((pitch - 69) / 12);
+  f.type = "lowpass"; f.frequency.value = 2200;
+  const rel = Math.min(0.06, dur * 0.4);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(0.16, t + 0.01);
+  g.gain.setValueAtTime(0.16, t + dur - rel);
+  g.gain.linearRampToValueAtTime(0, t + dur);
+  o.connect(f); f.connect(g); g.connect(c.destination);
+  o.start(t); o.stop(t + dur + 0.02);
+  active.push(o);
+}
+function stop() {
+  active.forEach((o) => { try { o.stop(); } catch {} });
+  active = [];
+  timers.forEach(clearTimeout); timers = [];
+  document.querySelectorAll(".n.now").forEach((e) => e.classList.remove("now"));
+}
+function lightUp(el, t, dur) {
+  if (!el) return;
+  const delay = Math.max(0, (t - ac().currentTime) * 1000);
+  timers.push(setTimeout(() => el.classList.add("now"), delay));
+  timers.push(setTimeout(() => el.classList.remove("now"), delay + dur * 1000));
+}
+// 一定の長さで音列を鳴らす
+function playSeq(pitches, els = []) {
+  stop();
+  const step = db.settings.ms / 1000, t0 = ac().currentTime + 0.05;
+  pitches.forEach((p, k) => {
+    tone(p, t0 + k * step, step * 0.92);
+    lightUp(els[k], t0 + k * step, step * 0.92);
+  });
+}
+// 原曲のタイミングで鳴らす
+function playMelody(m, els = [], shift = 0) {
+  stop();
+  const t0 = ac().currentTime + 0.1, base = m.notes[0].start;
+  m.notes.forEach((n, k) => {
+    const t = t0 + (n.start - base) / 1000, dur = Math.max(0.08, n.dur / 1000);
+    tone(n.pitch + shift, t, dur);
+    lightUp(els[k], t, dur);
+  });
+}
+// 最低音〜最高音が 43〜84 に収まる範囲でランダムに移調幅を選ぶ(原曲と同じ高さは除く)
+function randomShift(m) {
+  const ps = m.notes.map((n) => n.pitch), lo = Math.min(...ps), hi = Math.max(...ps);
+  const choices = [];
+  for (let s = 43 - lo; s <= 84 - hi; s++) if (s !== 0) choices.push(s);
+  return choices.length ? choices[rand(choices.length)] : 0;
+}
+
+// ---- 画面の共通部品 ----
+let quiz = null, qstate = null;
+function view(...kids) {
+  stop();
+  qstate = null;
+  app.replaceChildren(...kids);
+  window.scrollTo(0, 0);
+}
+
+// 曲中の該当箇所(i から n 個の音程)を含む行。部分と曲を鳴らせる
+function exampleRow(o, n) {
+  const els = o.m.notes.map((nt, k) => h("span", { class: "n" + (k >= o.i && k <= o.i + n ? " hit" : "") }, spell(nt.pitch, false)));
+  const ctx = h("div", { class: "ctx" });
+  els.forEach((el, k) => ctx.append(el, k < els.length - 1 ? " " : ""));
+  return h("div", { class: "ex" },
+    h("div", { class: "top" },
+      h("button", { onclick: () => playMelody(o.m, els) }, "▶ 曲"),
+      h("button", { onclick: () => playMelody(o.m, els, randomShift(o.m)) }, "🎲 ランダムキー"),
+      o.i === 0 ? h("span", { class: "badge" }, "先頭") : "",
+      h("b", {}, o.m.label)),
+    ctx);
+}
+// 1曲につき1か所、曲の先頭で始まるものを優先して選ぶ
+function pickExamples(list, count) {
+  const byMelody = new Map();
+  for (const o of shuffle(list)) {
+    const cur = byMelody.get(o.m.no);
+    if (!cur || (o.i === 0 && cur.i !== 0)) byMelody.set(o.m.no, o);
+  }
+  const all = [...byMelody.values()];
+  return [...all.filter((o) => o.i === 0), ...all.filter((o) => o.i !== 0)].slice(0, count);
+}
+function examples(mode, key, count, title) {
+  const list = MODES[mode].occ().get(key) ?? [];
+  const n = key.split(",").length;
+  const box = h("div", {});
+  const draw = () => {
+    box.replaceChildren(
+      h("div", { class: "bar" }, h("h3", { class: "grow" }, title), h("button", { onclick: () => { stop(); draw(); } }, "別の例")),
+      ...(list.length ? pickExamples(list, count).map((o) => exampleRow(o, n)) : [h("p", { class: "muted" }, "データに例がありません")]));
+  };
+  draw();
+  return box;
+}
+
+// ---- ホーム ----
+function showHome() {
+  view(...MODE_IDS.map(modeCard), settingsCard(), statsCard());
+}
+function modeCard(mode) {
+  const M = MODES[mode], P = db.progress[mode], max = M.maxLevel();
+  const card = h("section", { class: "card" }, h("h2", {}, M.title));
+  if (max < 1) card.append(h("p", { class: "muted" }, "データが足りません"));
+  for (let L = 1; L <= max; L++) {
+    const locked = L > P.unlocked, best = P.best[L];
+    card.append(h("div", { class: "lv" + (locked ? " locked" : "") },
+      h("div", {}, h("b", {}, `Lv${L}`), " ", M.levelText(L), best != null ? h("small", { class: "muted" }, `  最高 ${Math.round(best * 100)}%`) : ""),
+      h("div", { class: "btns" },
+        h("button", { disabled: locked, onclick: () => showIntro(mode, L) }, "確認"),
+        h("button", { class: "primary", disabled: locked, onclick: () => (db.seenIntro[mode + L] ? startQuiz(mode, L) : showIntro(mode, L)) }, "開始"))));
+  }
+  card.append(h("p", { class: "muted" }, `${SESSION}問中 ${Math.round(PASS * SESSION)}問以上の正解で次のレベルが解放されます。`));
+  return card;
+}
+function settingsCard() {
+  const ms = h("input", { type: "number", min: 150, max: 1500, step: 50, value: db.settings.ms, style: "width:80px", onchange: (e) => { db.settings.ms = Math.max(150, Math.min(1500, +e.target.value || 450)); saveDb(); } });
+  const status = h("span", { class: "muted" });
+  const sync = async () => {
+    status.textContent = "送信中…";
+    status.textContent = sendStatus(await flushOutbox());
+  };
+  const key = h("input", { type: "password", placeholder: "life APIキー", value: getKey(), style: "width:220px", autocomplete: "off", onchange: (e) => { setKey(e.target.value.trim()); sync(); } });
+  status.textContent = db.outbox.length ? `未送信 ${db.outbox.length}件` : "未送信なし";
+  if (getKey() && db.outbox.length) sync();
+  return h("section", { class: "card" }, h("h2", {}, "設定"),
+    h("div", { class: "bar" }, h("label", {}, "1音の長さ ", ms, " ms")),
+    h("div", { class: "bar" }, h("label", {}, "life APIキー ", key), h("button", { onclick: sync }, "未送信を送る"), status),
+    h("p", { class: "muted", style: "margin:0" }, "セッション(10問)が終わるたびに結果を life へ送ります。キーはこの端末の localStorage にだけ保存されます。"));
+}
+function statsCard() {
+  const card = h("section", { class: "card" }, h("h2", {}, "記録"));
+  card.append(h("p", { class: "muted" }, `回答 ${db.answers.length}件(このブラウザに保存)。行を開くと、1音目ごとの正解数と間違えた答えが見られます。`));
+  for (const mode of Object.keys(MODES)) {
+    const by = new Map();
+    for (const a of db.answers) if (a.mode === mode) {
+      const s = by.get(a.key) ?? { n: 0, ok: 0, start: new Map(), wrong: new Map() };
+      s.n++;
+      if (a.correct) s.ok++; else s.wrong.set(a.answer, (s.wrong.get(a.answer) ?? 0) + 1);
+      if (a.notes?.length) {
+        const pc = ((a.notes[0] % 12) + 12) % 12, c = s.start.get(pc) ?? { n: 0, ok: 0 };
+        c.n++; if (a.correct) c.ok++;
+        s.start.set(pc, c);
+      }
+      by.set(a.key, s);
+    }
+    if (!by.size) continue;
+    card.append(h("h3", {}, MODES[mode].title));
+    for (const [key, s] of [...by].sort((a, b) => a[1].ok / a[1].n - b[1].ok / b[1].n || b[1].n - a[1].n)) card.append(statRow(mode, key, s));
+  }
+  card.append(h("div", { class: "bar", style: "margin-top:12px" }, h("button", { onclick: exportJson }, "JSONで書き出す")));
+  return card;
+}
+// 音程(パターン)ごとの行。開くと、出題の1音目ごとの正解数と、間違えたときの答えが見られる
+function statRow(mode, key, s) {
+  const wrong = [...s.wrong].sort((a, b) => b[1] - a[1]).map(([k, c]) => `${keyLabel(k)} ×${c}`);
+  const cells = SHARP.map((name, pc) => {
+    const c = s.start.get(pc);
+    const bg = c ? `background:color-mix(in srgb, var(--ng) ${Math.round((1 - c.ok / c.n) * 70)}%, var(--ok-bg))` : "";
+    return h("div", { class: "cell", style: bg }, h("b", {}, name), h("small", {}, c ? `${c.ok}/${c.n}` : "–"));
+  });
+  return h("details", { class: "stat" },
+    h("summary", {}, h("span", {}, keyLabel(key)),
+      h("span", {}, `${s.ok}/${s.n}  ${Math.round((s.ok / s.n) * 100)}%`)),
+    h("p", { class: "muted", style: "margin:6px 0" }, wrong.length ? `間違えた答え: ${wrong.join("、")}` : "まだ間違えていません"),
+    h("div", { class: "muted" }, "1音目ごとの正解数(赤いほどよく間違える)"),
+    h("div", { class: "cells" }, cells));
+}
+function exportJson() {
+  const data = { exportedAt: new Date().toISOString(), progress: db.progress, settings: db.settings, answers: db.answers };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const a = h("a", { href: URL.createObjectURL(blob), download: `mimicopy-drill-${data.exportedAt.slice(0, 10)}.json` });
+  document.body.append(a); a.click(); a.remove();
+}
+
+// ---- レベル開始前の確認画面 ----
+function showIntro(mode, L) {
+  const M = MODES[mode];
+  db.seenIntro[mode + L] = true; saveDb();
+  const kids = [
+    h("div", { class: "bar" }, h("h2", { class: "grow" }, `Lv${L} 新しく加わる${M.noun}`)),
+    h("div", { class: "chips" }, h("span", { class: "muted" }, "出題範囲:"), M.keys(L).map((k) => h("span", { class: "chip" }, keyLabel(k)))),
+  ];
+  for (const key of M.newKeys(L)) {
+    const ref = pitchesOf(key, 60);
+    const els = ref.map((p, k) => h("span", { class: "n" }, spell(p, key.split(",").map(Number).find((v) => v !== 0) < 0)));
+    const names = h("span", { class: "big", style: "padding:0;font-size:20px" });
+    els.forEach((el, k) => names.append(el, k < els.length - 1 ? h("span", { class: "arrow" }, "→") : ""));
+    kids.push(h("section", { class: "card" },
+      h("div", { class: "bar" }, h("h2", { class: "grow", style: "margin:0" }, keyLabel(key), h("small", { class: "muted" }, `  (${key})`)),
+        names, h("button", { onclick: () => playSeq(ref, els) }, "▶ ドから鳴らす")),
+      examples(mode, key, 3, "この進行を使っている曲")));
+  }
+  kids.push(h("div", { class: "bar" },
+    h("button", { class: "primary", onclick: () => startQuiz(mode, L) }, `Lv${L} を開始`),
+    h("button", { onclick: showHome }, "ホームへ")));
+  view(...kids);
+}
+
+// ---- 出題 ----
+function startQuiz(mode, level) {
+  quiz = { mode, level, idx: 0, correct: 0, prevKey: null, answers: [], sessionId: newId(), startedAt: new Date().toISOString() };
+  nextQuestion();
+}
+function makeQuestion() {
+  const M = MODES[quiz.mode], keys = M.keys(quiz.level), fresh = new Set(M.newKeys(quiz.level));
+  const pool = keys.flatMap((k) => (fresh.has(k) ? [k, k] : [k]));   // 新しい音程は2倍出やすくする
+  let key;
+  for (let t = 0; t < 4; t++) { key = pool[rand(pool.length)]; if (key !== quiz.prevKey) break; }
+  let pitches;
+  do pitches = pitchesOf(key, 60 + rand(13)); while (Math.min(...pitches) < 52 || Math.max(...pitches) > 80);
+  const flat = key.split(",").map(Number).find((v) => v !== 0) < 0;
+  return { key, pitches, flat, choices: keys, shownAt: Date.now() };
+}
+function nextQuestion() {
+  if (quiz.idx >= SESSION) return showResult();
+  const q = quiz.q = makeQuestion();
+  quiz.prevKey = q.key;
+  const M = MODES[quiz.mode];
+  // 音名は回答するまで出さない(見えると聞かなくても分かってしまう)
+  const els = q.pitches.map(() => h("span", { class: "n" }, "?"));
+  const names = () => q.pitches.map((p) => spell(p, q.flat));
+  const reveal = () => els.forEach((el, k) => { el.textContent = names()[k]; });
+  const big = h("div", { class: "big" });
+  els.forEach((el, k) => big.append(el, k < els.length - 1 ? h("span", { class: "arrow" }, "→") : ""));
+
+  const banner = h("div", { class: "banner" });
+  const feedback = h("div", {});
+  const btns = q.choices.map((k, i) => h("button", { class: "choice", onclick: () => answer(i) },
+    h("span", { class: "kb" }, String(i + 1)), keyLabel(k), h("small", {}, k.split(",").map((x) => signed(+x)).join(", "))));
+  const replay = () => playSeq(q.pitches, els);
+  // 次へは結果の隣に固定(例が増えても押しやすい位置)。答えるまでは押せない
+  const nextBtn = h("button", { class: "primary", disabled: true, onclick: nextQuestion }, "次の問題 →");
+  const card = h("section", { class: "card qcard" },
+    big, banner,
+    h("div", { class: "bar", style: "justify-content:center;margin:0" }, h("button", { onclick: replay }, "▶ もう一度 (R)"), nextBtn));
+
+  const answer = (i) => {
+    if (qstate.answered) return;
+    qstate.answered = true;
+    const picked = q.choices[i], ok = picked === q.key;
+    btns.forEach((b, j) => {
+      b.disabled = true;
+      if (q.choices[j] === q.key) b.classList.add("ok");
+      else if (j === i) b.classList.add("ng");
+    });
+    reveal();
+    db.answers.push({ ts: new Date().toISOString(), mode: quiz.mode, level: quiz.level, key: q.key, answer: picked, correct: ok, notes: q.pitches, choices: q.choices, ms: Date.now() - q.shownAt });
+    saveDb();
+    quiz.answers.push({ key: q.key, answer: picked, correct: ok, notes: q.pitches, ms: Date.now() - q.shownAt });
+    quiz.idx++; if (ok) quiz.correct++;
+    card.classList.add(ok ? "ok" : "ng");
+    banner.replaceChildren(
+      h("div", { class: "verdict" }, ok ? "◯ 正解!" : "✕ 不正解"),
+      h("div", {}, `${names().join("→")} は ${keyLabel(q.key)}`),
+      ok ? "" : h("div", { class: "muted" }, `あなたの答え: ${keyLabel(picked)}`));
+    nextBtn.disabled = false;
+    nextBtn.textContent = (quiz.idx >= SESSION ? "結果を見る" : "次の問題 →") + " (Enter)";
+    feedback.replaceChildren(
+      examples(quiz.mode, q.key, 3, `${keyLabel(q.key)} を使っている曲`),
+      ok ? "" : examples(quiz.mode, picked, 2, `あなたの答え「${keyLabel(picked)}」を使っている曲`));
+  };
+
+  view(
+    h("div", { class: "bar" },
+      h("b", { class: "grow" }, `${M.short} Lv${quiz.level}  ${quiz.idx + 1} / ${SESSION}`),
+      h("span", { class: "muted" }, `正解 ${quiz.correct}`),
+      h("button", { onclick: showHome }, "中止")),
+    card,
+    h("div", { class: "choices" }, btns),
+    feedback);
+  qstate = { answered: false, pick: (i) => i < btns.length && answer(i), next: nextQuestion, replay };
+  replay();
+}
+
+function showResult() {
+  const { mode, level, correct } = quiz, M = MODES[mode], P = db.progress[mode];
+  const acc = correct / SESSION, passed = acc >= PASS;
+  P.best[level] = Math.max(P.best[level] ?? 0, acc);
+  let unlocked = false;
+  if (passed && level === P.unlocked && level < M.maxLevel()) { P.unlocked++; unlocked = true; }
+  // 1セッション1件で life に送る。失敗したら outbox に残り、あとで再送される(sessionId で重複を判別できる)
+  db.outbox.push({
+    type: "mimicopy.drill",
+    data: { sessionId: quiz.sessionId, mode, level, correct, total: SESSION, passed, startedAt: quiz.startedAt, finishedAt: new Date().toISOString(), answers: quiz.answers },
+    tags: ["mimicopy", "drill"],
+    schemaVersion: 1,
+  });
+  saveDb();
+  const status = h("p", { class: "muted", style: "text-align:center" }, "life に送信中…");
+  flushOutbox().then((r) => { status.textContent = sendStatus(r); });
+  const kids = [
+    h("section", { class: "card" },
+      h("h2", {}, `${M.short} Lv${level} の結果`),
+      h("div", { class: "score" }, `${correct} / ${SESSION}`),
+      h("p", { class: "muted", style: "text-align:center" }, passed ? "合格!" : `あと少し。${Math.round(PASS * SESSION)}問以上で合格です。`),
+      unlocked ? h("p", { style: "text-align:center" }, `Lv${level + 1} が解放されました`) : "",
+      status),
+  ];
+  const bar = h("div", { class: "bar" });
+  if (unlocked) bar.append(h("button", { class: "primary", onclick: () => showIntro(mode, level + 1) }, `Lv${level + 1} の新しい${M.noun}を確認`));
+  bar.append(h("button", { onclick: () => startQuiz(mode, level) }, "もう一度"), h("button", { onclick: showHome }, "ホームへ"));
+  kids.push(bar);
+  view(...kids);
+}
+
+document.addEventListener("keydown", (e) => {
+  if (!qstate || e.target.matches("input, select, textarea") || e.ctrlKey || e.metaKey) return;
+  if (e.key === "Enter" && qstate.answered) { e.preventDefault(); qstate.next(); }
+  else if (e.key === "r" || e.key === "R") qstate.replay();
+  else if (!qstate.answered && /^[1-9]$/.test(e.key)) qstate.pick(+e.key - 1);
+});
+
+// ---- 起動 ----
+fetch("piano-melody.json").then((r) => { if (!r.ok) throw 0; return r.json(); }).then(load).catch(() => {
+  $("loadmsg").replaceChildren("piano-melody.json を選択: ",
+    h("input", { type: "file", accept: ".json", onchange: (e) => e.target.files[0].text().then((t) => load(JSON.parse(t))) }));
+});
+</script>
+</body>
+</html>

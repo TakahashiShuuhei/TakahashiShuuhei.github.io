@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>音程ビューア</title>
+<style>
+  :root {
+    --bg: #fafaf8; --fg: #1f2328; --muted: #6b7280; --line: #e2e2dc;
+    --panel: #fff; --accent: #2457c5; --accent-bg: #e8effc; --hit: #fff3c4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181c; --fg: #e6e6e3; --muted: #9aa0a8; --line: #2d3138;
+      --panel: #1e2126; --accent: #7aa2f7; --accent-bg: #26324d; --hit: #4a4220;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
+  header { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; }
+  header h1 { font-size: 16px; margin: 0 8px 0 0; }
+  label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
+  select, input[type=number], button { font: inherit; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  main { display: flex; flex-wrap: wrap; gap: 16px; padding: 16px; align-items: flex-start; }
+  #list { flex: 0 0 300px; max-height: calc(100vh - 90px); overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+  #detail { flex: 1 1 420px; min-width: 0; }
+  .pat { display: grid; grid-template-columns: 1fr auto; gap: 0 10px; padding: 7px 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .pat:hover { background: var(--accent-bg); }
+  .pat.sel { background: var(--accent-bg); box-shadow: inset 3px 0 0 var(--accent); }
+  .pat b { font-variant-numeric: tabular-nums; }
+  .pat small { color: var(--muted); }
+  .pat .cnt { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .bar h2 { font-size: 18px; margin: 0 8px 0 0; }
+  .occ { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; }
+  .occ.playing { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-bg); }
+  .occ .top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .occ .title { font-weight: 600; }
+  .occ .snip { color: var(--accent); font-weight: 600; }
+  .occ .played { color: var(--muted); font-size: 13px; }
+  .ctx { margin-top: 4px; color: var(--muted); font-size: 13px; word-break: break-all; }
+  .ctx .n { border-radius: 3px; padding: 0 2px; }
+  .ctx .n.hit { background: var(--hit); color: var(--fg); }
+  .ctx .n.now { background: var(--accent); color: #fff; font-weight: 700; }
+  #empty { color: var(--muted); padding: 40px 0; }
+  .muted { color: var(--muted); }
+  .seg { display: inline-flex; }
+  .seg button { border-radius: 0; margin-left: -1px; }
+  .seg button:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+  .seg button:last-child { border-radius: 0 6px 6px 0; }
+  .seg button.on { background: var(--accent); border-color: var(--accent); color: #fff; position: relative; }
+  .occ { cursor: pointer; }
+  .occ:hover { border-color: var(--accent); }
+  .badge { font-size: 12px; background: var(--accent-bg); color: var(--accent); border-radius: 4px; padding: 0 6px; }
+  .pat .head { color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>音程ビューア</h1>
+  <a href="drill.html" style="color:var(--accent)">ドリル</a>
+  <label>パターンの長さ
+    <span class="seg" id="n"><button data-n="1" class="on">2音</button><button data-n="2">3音</button><button data-n="3">4音</button></span>
+  </label>
+  <label>並び
+    <select id="sort"><option value="head">先頭で始まる曲が多い順</option><option value="count">出現数順</option><option value="interval">音程順</option></select>
+  </label>
+  <label><input type="checkbox" id="collapse"> 同音連打を1音にまとめる</label>
+  <label>部分の再生キー
+    <select id="tr">
+      <option value="rand">毎回ランダムな高さに移調</option>
+      <option value="C">ドから始める</option>
+      <option value="orig">原曲の高さのまま</option>
+    </select>
+  </label>
+  <label>1音 <input type="number" id="ms" value="450" min="150" max="1500" step="50" style="width:70px"> ms</label>
+  <span id="loadmsg"></span>
+</header>
+<main>
+  <div id="list"></div>
+  <div id="detail"><div id="empty">左の一覧から進行を選んでください。</div></div>
+</main>
+
+<script>
+const NAMES = ["ド", "ド#", "レ", "レ#", "ミ", "ファ", "ファ#", "ソ", "ソ#", "ラ", "ラ#", "シ"];
+const IV_NAMES = ["同音", "短2度", "長2度", "短3度", "長3度", "完全4度", "増4度/減5度", "完全5度", "短6度", "長6度", "短7度", "長7度", "オクターブ"];
+const $ = (id) => document.getElementById(id);
+const name = (p) => NAMES[((p % 12) + 12) % 12];
+
+function h(tag, attrs = {}, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") el.className = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v);
+  }
+  for (const k of kids.flat()) el.append(k);
+  return el;
+}
+
+// ---- データ ----
+let melodies = [];   // {no, label, notes[] (開始順の原データ)}
+let patterns = new Map(); // key "2,2" -> [{m, i, seq}]
+let selected = null;
+let N = 1;           // 音程の個数(音数 = N + 1)
+
+function load(raw) {
+  melodies = raw.map((item, no) => {
+    const d = item.data;
+    const notes = [...d.notes].sort((a, b) => a.start - b.start);
+    return { no, label: d.name + (d.memo ? `(${d.memo})` : ""), notes };
+  });
+  $("loadmsg").textContent = `${melodies.length}メロディ`;
+  rebuild();
+}
+
+function sequenceOf(m, collapse) {
+  // seq: 音程計算に使う音列。orig は m.notes 上の添字
+  const seq = [];
+  m.notes.forEach((n, orig) => {
+    if (collapse && seq.length && seq[seq.length - 1].pitch === n.pitch) return;
+    seq.push({ pitch: n.pitch, orig });
+  });
+  return seq;
+}
+
+function rebuild() {
+  const n = N, collapse = $("collapse").checked;
+  patterns = new Map();
+  for (const m of melodies) {
+    const seq = sequenceOf(m, collapse);
+    for (let i = 0; i + n < seq.length; i++) {
+      const key = seq.slice(i, i + n + 1).slice(1).map((s, k) => s.pitch - seq[i + k].pitch).join(",");
+      if (!patterns.has(key)) patterns.set(key, []);
+      patterns.get(key).push({ m, i, seq: seq.slice(i, i + n + 1) });
+    }
+  }
+  if (!patterns.has(selected)) selected = null;
+  renderList();
+  renderDetail();
+}
+
+// ---- 表示 ----
+const fmt = (key) => key.split(",").map((x) => (+x >= 0 ? "+" : "") + x).join(", ");
+function ivLabel(key) {
+  if (key.includes(",")) return "";
+  const v = +key, a = Math.abs(v);
+  const base = a <= 12 ? IV_NAMES[a] : `${a}半音`;
+  return v === 0 ? base : `${base}${v > 0 ? "上" : "下"}`;
+}
+
+function renderList() {
+  const list = $("list");
+  list.replaceChildren();
+  const entries = [...patterns.entries()].map(([key, occ]) => ({
+    key, occ,
+    head: occ.filter((o) => o.i === 0).length,
+    kinds: new Set(occ.map((o) => o.m.no)).size,
+  }));
+  const mode = $("sort").value;
+  if (mode === "head") entries.sort((a, b) => b.head - a.head || b.occ.length - a.occ.length);
+  else if (mode === "count") entries.sort((a, b) => b.occ.length - a.occ.length);
+  else entries.sort((a, b) => {
+    const x = a.key.split(",").map(Number), y = b.key.split(",").map(Number);
+    return x.reduce((d, v, i) => d || v - y[i], 0);
+  });
+  for (const { key, occ, head, kinds } of entries) {
+    list.append(h("div", { class: "pat" + (key === selected ? " sel" : ""), onclick: () => { stop(); selected = key; renderList(); renderDetail(); } },
+      h("div", {}, h("b", {}, fmt(key)), " ", h("small", {}, ivLabel(key))),
+      h("div", { class: "cnt" }, head ? h("span", { class: "head" }, `先頭${head} `) : "", `${occ.length}件/${kinds}曲`)));
+  }
+}
+
+let rows = [];       // {o, row, played}
+let keyShift = 0;    // 曲再生時のキー(原曲からの半音数)
+
+function renderDetail() {
+  const box = $("detail");
+  box.replaceChildren();
+  rows = [];
+  if (selected === null) { box.append(h("div", { id: "empty" }, "左の一覧から進行を選んでください。")); return; }
+  // 曲の先頭で始まるものを上に
+  const occ = [...patterns.get(selected)].sort((a, b) => (b.i === 0) - (a.i === 0));
+  const headN = occ.filter((o) => o.i === 0).length;
+  box.append(
+    h("div", { class: "bar" },
+      h("h2", {}, `${fmt(selected)} ${ivLabel(selected)}`),
+      h("span", { class: "muted" }, `先頭 ${headN}曲 / 全${occ.length}件`),
+      h("button", { class: "primary", onclick: () => playAll() }, "▶ 全部つづけて再生"),
+      h("button", { onclick: stop }, "■ 停止")),
+    h("div", { class: "bar" },
+      h("span", { class: "muted" }, "曲再生のキー(原曲から半音)"),
+      h("button", { onclick: () => shiftKey(-1) }, "−"),
+      h("b", { id: "keyval" }),
+      h("button", { onclick: () => shiftKey(1) }, "+"),
+      h("button", { onclick: () => { keyShift = 0; updateKey(); } }, "原曲")));
+  for (const o of occ) {
+    const entry = { o, played: h("span", { class: "played" }), row: null, els: [] };
+    const ctx = h("div", { class: "ctx" });
+    const lo = o.seq[0].orig, hi = o.seq[o.seq.length - 1].orig;
+    o.m.notes.forEach((n, k) => {
+      const el = h("span", { class: "n" + (k >= lo && k <= hi ? " hit" : "") }, name(n.pitch));
+      entry.els.push(el);
+      ctx.append(el, k < o.m.notes.length - 1 ? " " : "");
+    });
+    const playSong = (shift) => {
+      stop();
+      entry.played.textContent = `♪ 曲 開始音 ${name(o.m.notes[0].pitch + shift)}`;
+      playMelody(o.m, shift, entry.els);
+    };
+    const songBtn = h("button", { onclick: (e) => { e.stopPropagation(); playSong(keyShift); } }, "▶ 曲");
+    const randBtn = h("button", { onclick: (e) => { e.stopPropagation(); playSong(randomShift(o.m.notes.map((n) => n.pitch))); } }, "🎲 ランダムキー");
+    entry.row = h("div", { class: "occ", onclick: () => { stop(); playSnippet(o, ac().currentTime + 0.05, entry.played, entry.row, entry.els); } },
+      h("div", { class: "top" },
+        songBtn, randBtn,
+        o.i === 0 ? h("span", { class: "badge" }, "先頭") : "",
+        h("span", { class: "title" }, o.m.label),
+        h("span", { class: "snip" }, o.seq.map((s) => name(s.pitch)).join("→")),
+        entry.played),
+      ctx);
+    rows.push(entry);
+    box.append(entry.row);
+  }
+  updateKey();
+}
+
+function shiftKey(d) {
+  keyShift = Math.max(-12, Math.min(12, keyShift + d));
+  updateKey();
+}
+function updateKey() {
+  $("keyval").textContent = (keyShift > 0 ? "+" : "") + keyShift;
+}
+
+// ---- 音 ----
+let audio = null, active = [], timers = [];
+function ac() {
+  audio ??= new AudioContext();
+  if (audio.state === "suspended") audio.resume();
+  return audio;
+}
+function tone(pitch, t, dur) {
+  const c = ac();
+  const o = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain();
+  o.type = "sawtooth";
+  o.frequency.value = 440 * 2 ** ((pitch - 69) / 12);
+  f.type = "lowpass"; f.frequency.value = 2200;
+  const rel = Math.min(0.06, dur * 0.4);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(0.16, t + 0.01);
+  g.gain.setValueAtTime(0.16, t + dur - rel);
+  g.gain.linearRampToValueAtTime(0, t + dur);
+  o.connect(f); f.connect(g); g.connect(c.destination);
+  o.start(t); o.stop(t + dur + 0.02);
+  active.push(o);
+}
+function stop() {
+  active.forEach((o) => { try { o.stop(); } catch {} });
+  active = [];
+  timers.forEach(clearTimeout); timers = [];
+  document.querySelectorAll(".occ.playing").forEach((e) => e.classList.remove("playing"));
+  document.querySelectorAll(".ctx .n.now").forEach((e) => e.classList.remove("now"));
+}
+// 音名の表記を、鳴っている間だけ光らせる(カラオケ風)
+function lightUp(el, t, dur) {
+  if (!el) return;
+  const delay = Math.max(0, (t - ac().currentTime) * 1000);
+  timers.push(setTimeout(() => el.classList.add("now"), delay));
+  timers.push(setTimeout(() => el.classList.remove("now"), delay + dur * 1000));
+}
+function shiftFor(pitches) {
+  const mode = $("tr").value, first = pitches[0];
+  if (mode === "orig") return 0;
+  let s = mode === "C" ? 60 - first : 55 + Math.floor(Math.random() * 13) - first;
+  const lo = Math.min(...pitches), hi = Math.max(...pitches);
+  if (hi + s > 84) s -= 12;
+  if (lo + s < 43) s += 12;
+  return s;
+}
+// 曲全体用: 最低音〜最高音が 43〜84 に収まる範囲でランダムに移調幅を選ぶ(原曲と同じ高さは除く)
+function randomShift(pitches) {
+  const lo = Math.min(...pitches), hi = Math.max(...pitches);
+  const choices = [];
+  for (let s = 43 - lo; s <= 84 - hi; s++) if (s !== 0) choices.push(s);
+  return choices.length ? choices[Math.floor(Math.random() * choices.length)] : 0;
+}
+// 1つの該当箇所を鳴らす。戻り値は終了時刻
+function playSnippet(o, t0, playedEl, rowEl, els) {
+  const pitches = o.seq.map((s) => s.pitch);
+  const shift = shiftFor(pitches);
+  const step = +$("ms").value / 1000;
+  pitches.forEach((p, k) => {
+    tone(p + shift, t0 + k * step, step * 0.92);
+    lightUp(els[o.seq[k].orig], t0 + k * step, step * 0.92);
+  });
+  const c = ac();
+  const delay = (t0 - c.currentTime) * 1000;
+  timers.push(setTimeout(() => {
+    rowEl.classList.add("playing");
+    playedEl.textContent = "♪ " + pitches.map((p) => name(p + shift)).join("→");
+  }, Math.max(0, delay)));
+  timers.push(setTimeout(() => rowEl.classList.remove("playing"), Math.max(0, delay + pitches.length * step * 1000)));
+  return t0 + pitches.length * step;
+}
+function playAll(occ) {
+  stop();
+  let t = ac().currentTime + 0.1;
+  for (const { row, played, o, els } of rows) {
+    t = playSnippet(o, t, played, row, els) + 0.9;
+  }
+}
+function playMelody(m, shift = 0, els = []) {
+  const c = ac(), t0 = c.currentTime + 0.1, base = m.notes[0].start;
+  m.notes.forEach((n, k) => {
+    const t = t0 + (n.start - base) / 1000, dur = Math.max(0.08, n.dur / 1000);
+    tone(n.pitch + shift, t, dur);
+    lightUp(els[k], t, dur);
+  });
+}
+
+// ---- 起動 ----
+$("collapse").addEventListener("change", () => { stop(); rebuild(); });
+document.querySelectorAll("#n button").forEach((b) => b.addEventListener("click", () => {
+  N = +b.dataset.n;
+  document.querySelectorAll("#n button").forEach((x) => x.classList.toggle("on", x === b));
+  stop(); rebuild();
+}));
+$("sort").addEventListener("change", renderList);
+
+fetch("piano-melody.json").then((r) => { if (!r.ok) throw 0; return r.json(); }).then(load).catch(() => {
+  $("loadmsg").replaceChildren("piano-melody.json を選択: ",
+    h("input", { type: "file", accept: ".json", onchange: (e) => e.target.files[0].text().then((t) => load(JSON.parse(t))) }));
+});
+</script>
+</body>
+</html>
