@@ -1,5 +1,5 @@
-const VERSION = "piano-6e92f9c62f";
-const FILES = ["./","assets/index-HIy-CpDy.js","assets/index-Dy1aHoCn.css","manifest.webmanifest","icon.svg","icon-192.png","icon-512.png"];
+const VERSION = "piano-e3375c14bb";
+const FILES = ["./","assets/index-CROmilIj.js","assets/index-DhhA2rY3.css","manifest.webmanifest","icon.svg","icon-192.png","icon-512.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
