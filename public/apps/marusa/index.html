@@ -103,6 +103,10 @@ details.grp>summary{font-weight:700;font-size:15px;cursor:pointer;list-style:rev
 .frag .fseq .chd{white-space:nowrap}
 .frag .fp{border-top:1px dashed var(--line);margin-top:8px;padding-top:6px}
 .frag .fp .sc{font-size:12px;color:var(--sub);margin-bottom:2px}
+.frag .stg{margin-top:8px;border-top:1px dashed var(--line);padding-top:6px}
+.frag .stl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.frag .stl small{color:var(--sub);font-size:12px}
+.frag .stl .btn{margin-left:auto;padding:1px 10px}
 .frag .lhline{font-size:12px;color:var(--sub);margin-top:4px}
 .frag .pt{font-size:13px;margin-top:8px;background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:6px 10px}
 .gdesc{font-size:12.5px;color:var(--sub);margin:6px 0 0;line-height:1.8}
@@ -691,12 +695,18 @@ function roleTxt(p,on){
   return '経';
 }
 function renderFragStaff(el,rh,bar){
-  const {Renderer,Stave,Formatter,Beam}=VF;
   const evs=barEvents('R',bar,rh);
   while(evs.length&&!evs[0].notes) evs.shift();
   while(evs.length&&!evs[evs.length-1].notes) evs.pop();
+  drawEvStaff(el,evs,Math.min(...rh.map(n=>n.p)),Math.max(...rh.map(n=>n.p)),true);
+}
+/* 段階練習用:音の並び(8分音符・上行)だけの譜面。色はコード tick の上での役割 */
+function renderSeqStaff(el,pitches,tick){
+  drawEvStaff(el,pitches.map(p=>({s:'8',dot:0,notes:[{p}],tick})),Math.min(...pitches),Math.max(...pitches),false);
+}
+function drawEvStaff(el,evs,lowP,hiP,labels){
+  const {Renderer,Stave,Formatter,Beam}=VF;
   const nEv=evs.filter(e=>e.notes).length;
-  const lowP=Math.min(...rh.map(n=>n.p)), hiP=Math.max(...rh.map(n=>n.p));
   const topY=hiP>=81?52:42, W=Math.min(760,Math.max(300,110+nEv*46)), Ht=topY+(lowP<55?135:lowP<60?110:90)+(hiP>=72?40:0);
   const r=new Renderer(el,Renderer.Backends.SVG); r.resize(W,Ht); const ctx=r.getContext();
   const st=new Stave(2,topY,W-8); st.addClef('treble').addKeySignature('A'); st.setContext(ctx).draw();
@@ -707,7 +717,7 @@ function renderFragStaff(el,rh,bar){
   X.v.draw(ctx,st);
   beams.forEach(b=>b.setContext(ctx).draw()); X.tups.forEach(t=>t.setContext(ctx).draw());
   // コード名ラベル(最初の音の上 + 途中でコードが変わる位置)
-  const first=evs.find(e=>e.notes); if(!first) return;
+  const first=evs.find(e=>e.notes); if(!first||!labels) return;
   ctx.setFont('sans-serif',12,'bold'); ctx.setFillStyle('#111');
   const marks=[{tick:first.tick,sym:chordAt(first.tick).sym}];
   TL.forEach(e=>{ if(e.start>first.tick){ const c=evs.find(v=>v.notes&&v.tick>=e.start); if(c&&!marks.some(m=>m.tick===c.tick)) marks.push({tick:c.tick,sym:e.sym}); } });
@@ -727,16 +737,38 @@ function makeFragCard(f,idx){
     const sn=rh.filter(n=>n.on>=s&&n.on<end);
     if(sn.length) segs.push({e,sn});
   });
+  // 段階練習: ① コードトーン(+このフレーズで使うテンション) → ② スケール → ③ フレーズ。音域はフレーズの最低音〜最高音
+  const stages=[];
+  if(segs.length===1&&segs[0].e.scaleSet){
+    const e=segs[0].e, ps=rh.map(n=>n.p), lo=Math.min(...ps), hi=Math.max(...ps), tick=segs[0].sn[0].on;
+    const used=new Set(ps.map(p=>p%12)), ct=[], sc=[];
+    for(let m=lo;m<=hi;m++){
+      const pc=m%12;
+      if(e.tp.includes(pc)||(e.np.includes(pc)&&used.has(pc))) ct.push(m);
+      if(e.scaleSet.has(pc)) sc.push(m);
+    }
+    const names=a=>a.map(m=>one({p:m,on:tick})).join(' ');
+    stages.push({no:'①',name:'コードトーン',sub:'この音域のコードトーン(+このフレーズで使うテンション)を上へ',ms:ct,html:names(ct),tick});
+    stages.push({no:'②',name:'スケール',sub:`この音域の ${e.scaleName.replace(/\(.*$/,'')} を上へ`,ms:sc,html:names(sc),tick});
+  }
+  const stageHtml=stages.map((g,i)=>`<div class="stg"><div class="stl"><span class="fno">${g.no}</span><b>${g.name}</b><small>${g.sub}</small><button class="btn sm" data-i="${i}">▶</button></div><div class="staff st${i}"></div><div class="fseq">${g.html}</div></div>`).join('');
   const card=document.createElement('div'); card.className='card frag';
-  card.innerHTML=`<div class="h"><span class="fno">${idx}</span><b>${f.title}</b><button class="btn">▶ 鳴らす</button></div>
+  card.innerHTML=`<div class="h"><span class="fno">${idx}</span><b>${f.title}</b><button class="btn main-play">▶ フレーズを鳴らす</button></div>
     <div class="fsub">小節${bar+1}(拍${f.a}〜${f.b})・${segs.map(x=>x.e.sym+' '+x.e.deg).join(' → ')}</div>
+    ${stageHtml}
+    ${stages.length?'<div class="stl" style="margin-top:8px"><span class="fno">③</span><b>フレーズ(実譜)</b><small>①の音を、②の中から選んで並べるとこうなる</small></div>':''}
     <div class="staff"></div>
     <div class="fseq">${seq}</div>
     ${segs.map(x=>`<div class="fp"><div class="sc">${x.e.sym} のスケール: ${x.e.scaleName}</div><div class="kb">${segKeyboard(x.e,x.sn)}</div></div>`).join('')}
     <div class="lhline">左手(実譜・音名のみ): ${[...new Set(lh.map(n=>lab(midiName(n.p))))].join(' → ')||'—'}</div>
     <div class="pt">${f.pt}</div>`;
-  try{ renderFragStaff(card.querySelector('.staff'),rh,bar); }catch(e){ card.querySelector('.staff').innerHTML='<span class="err">譜面の描画に失敗: '+e.message+'</span>'; console.error(e); }
-  card.querySelector('button').onclick=()=>playItems([...rh,...lh].map(n=>{
+  const staffEls=card.querySelectorAll('.staff');
+  try{ renderFragStaff(staffEls[staffEls.length-1],rh,bar); }catch(e){ staffEls[staffEls.length-1].innerHTML='<span class="err">譜面の描画に失敗: '+e.message+'</span>'; console.error(e); }
+  stages.forEach((g,i)=>{
+    try{ renderSeqStaff(card.querySelector('.st'+i),g.ms,g.tick); }catch(e){ card.querySelector('.st'+i).innerHTML='<span class="err">譜面の描画に失敗: '+e.message+'</span>'; console.error(e); }
+    card.querySelector(`.stg button[data-i="${i}"]`).onclick=()=>playItems(g.ms.map((m,k)=>({m,at:k*.5,d:.5})));
+  });
+  card.querySelector('.main-play').onclick=()=>playItems([...rh,...lh].map(n=>{
     const on=Math.max(n.on,t0), off=n.h==='R'?n.on+n.du:Math.min(n.on+n.du,t1+48);
     return {m:n.p,at:(on-t0)/96,d:Math.max(.1,(off-on)/96)};
   }));
@@ -834,8 +866,8 @@ const STEPS = [
   think:['イントロの右手の音は、ほとんどがこの5つのスケールの音でできている(灰色の経過音だけが例外)。','隣のコードとの違いは1〜2音だけ:C#7 では「ミ」が「ファ(E#)」に、F#m7 では「レ#」が出てきて、A7 では「ソ#」が「ソ」に変わる。この「変わる音」が各コードの色。','青=コードトーン(着地点)、オレンジ=テンション(色づけ)。スケール=「コードトーン+テンションを全部並べたもの」と見ると分かりやすい。'],
   cards:{kind:'scale',list:SCALE_CARDS}},
  {id:'fr1',title:'実譜を短いフレーズに切って、音の役割を確かめる',goal:'実際のイントロを2〜8音ずつに分けて、「コードトーン・テンション・スケールのどれを弾いているか」を見ながら弾く',
-  do:['カードを1枚ずつ。まず「弾く順」の行(色つきの音名と度数)を見ながら、右手だけをゆっくり(♩=60)。左手はそのコードのルートを全音符で。','鍵盤を見る:色つきの鍵=コードトーン/テンション、薄い青=スケール上の音、白丸=実際に弾く音。白丸が「スケールの中からどの音を拾っているか」を確かめる。','音名ではなく度数(9 → 3 → 5 → 7 …)で言いながら、もう一度弾く。灰色の音は「経過音」と声に出す。','弾けたら、同じコードのカードを続けて弾く(例:Ⅳ のカード4枚をつなぐ)。最後に実譜どおりのリズムで。'],
-  think:['実譜のフレーズは「スケールを順番に弾く」のではなく、<b>コードトーンとテンションを、1つ飛ばしや2つ飛ばしで拾っている</b>。鍵盤の白丸が、薄い青の上を飛び飛びに乗っているのが見えるはず。','灰色(スケール外)の音は、コードトーンの半音上か半音下にあって、すぐ近くのコードトーンに解決する。カードの「弾く順」で、灰色のあとに必ずコードトーンが来ることを確かめる。','ドミナント(G#m7・C#7)のカードは、♭9・#9・♭13 などの「ひねった」テンションが多い。F#m7 に解決する前の緊張感を作っている。','A13sus・A9sus4 のカードは 3rd(ド#)が一度も出てこない。9・11・13 だけで浮いた響きを作っている。'],
+  do:['カードを1枚ずつ、<b>①コードトーン → ②スケール → ③フレーズ</b>の順に右手で弾く(♩=60)。①②は、そのフレーズが使う音域だけを上へ。③は「弾く順」の行(色つきの音名と度数)を見ながら。左手はそのコードのルートを全音符で。','鍵盤を見る:色つきの鍵=コードトーン/テンション、薄い青=スケール上の音、白丸=実際に弾く音。白丸が「スケールの中からどの音を拾っているか」を確かめる。','音名ではなく度数(9 → 3 → 5 → 7 …)で言いながら、もう一度弾く。灰色の音は「経過音」と声に出す。','弾けたら、同じコードのカードを続けて弾く(例:Ⅳ のカード4枚をつなぐ)。最後に実譜どおりのリズムで。'],
+  think:['①→②→③と弾き比べると、フレーズ=「②のスケールの中から、①の音を中心に拾って並べ替えたもの」だと分かる。実譜は「スケールを順番に弾く」のではなく、<b>コードトーンとテンションを、1つ飛ばしや2つ飛ばしで拾っている</b>。鍵盤の白丸が、薄い青の上を飛び飛びに乗っているのが見えるはず。','灰色(スケール外)の音は、コードトーンの半音上か半音下にあって、すぐ近くのコードトーンに解決する。カードの「弾く順」で、灰色のあとに必ずコードトーンが来ることを確かめる。','ドミナント(G#m7・C#7)のカードは、♭9・#9・♭13 などの「ひねった」テンションが多い。F#m7 に解決する前の緊張感を作っている。','A13sus・A9sus4 のカードは 3rd(ド#)が一度も出てこない。9・11・13 だけで浮いた響きを作っている。'],
   note:'実譜のリズムのまま書いてあります(32分音符や三連符も出てきます)。最初は音の並びと役割だけ覚えて、速さは後から。左手(実譜)の欄は実際の左手の音(ルートが中心で、7th や次のコードへの先取りが混ざる)。最初は左手をルートの全音符だけにして右手に集中してOK。',
   fgroups:FRAG_GROUPS},
  {id:'sk1',title:'コードの刻みだけ(右手=先取りの和音)',goal:'メロディを抜いて、「和音がどのタイミングで入るか」だけを練習する',
