@@ -92,6 +92,21 @@ details.grp>summary{font-weight:700;font-size:15px;cursor:pointer;list-style:rev
 .seg svg{width:100%;height:auto;display:block}
 .seg .sq{font-size:13px;margin-top:6px;line-height:1.9;word-break:break-word}
 .seg .sq .tag{background:#eef2f7;color:var(--sub)}
+.frags{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(440px,100%),1fr));gap:14px;margin-top:12px}
+.frag .h{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.frag .fno{flex:none;width:22px;height:22px;border-radius:50%;background:#e8efff;color:var(--acc);font-size:12px;font-weight:700;display:grid;place-items:center}
+.frag .h b{font-size:15px}
+.frag .h .btn{margin-left:auto}
+.frag .fsub{font-size:12px;color:var(--sub);margin:2px 0 0}
+.frag .fseq{font-size:14.5px;line-height:1.9;margin-top:4px;font-weight:700;word-break:break-word}
+.frag .fseq small{font-weight:400;opacity:.85}
+.frag .fseq .chd{white-space:nowrap}
+.frag .fp{border-top:1px dashed var(--line);margin-top:8px;padding-top:6px}
+.frag .fp .sc{font-size:12px;color:var(--sub);margin-bottom:2px}
+.frag .lhline{font-size:12px;color:var(--sub);margin-top:4px}
+.frag .pt{font-size:13px;margin-top:8px;background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.gdesc{font-size:12.5px;color:var(--sub);margin:6px 0 0;line-height:1.8}
+.gdesc b{color:var(--ink)}
 table{border-collapse:collapse;font-size:13.5px;width:100%;display:block;overflow-x:auto}
 th,td{border:1px solid var(--line);padding:5px 9px;text-align:left;vertical-align:top}
 th{background:#f3f5f8}
@@ -221,12 +236,12 @@ const SC_A={name:'Aミクソリディアン(A B C# D E F# G)',notes:['A','B','C#
 const SC_G={name:'G#エオリアン = Bメジャーの音(G# A# B C# D# E F#)',notes:['G#','A#','B','C#','D#','E','F#']};
 const TL_DEF = {
   'D△7':   {sym:'D△7',deg:'Ⅳ△7', tones:['D','F#','A','C#'],tens:['E','B','G#'],roles:ROLE_D,scale:SC_D},
-  'C#7alt':{sym:'C#7alt',deg:'Ⅲ7', tones:['C#','E#','G#','B'],tens:['D','A','E'],roles:ROLE_C,scale:SC_C},
+  'C#7alt':{sym:'C#7alt',deg:'Ⅲ7', tones:['C#','E#','G#','B'],tens:['D','A','E','F#'],roles:ROLE_C,scale:SC_C},
   'F#m9':  {sym:'F#m9',deg:'Ⅵm9',  tones:['F#','A','C#','E'],tens:['G#','B','D#'],roles:ROLE_F,scale:SC_F},
   'A13sus':{sym:'A13sus4',deg:'Ⅰ7', tones:['A','C#','E','G'],tens:['B','D','F#'],roles:ROLE_A,scale:SC_A},
   'D△9':   {sym:'D△9',deg:'Ⅳ△9',  tones:['D','F#','A','C#'],tens:['E','B','G#'],roles:ROLE_D,scale:SC_D},
   'G#m7':  {sym:'G#m7',deg:'Ⅶm7',  tones:['G#','B','D#','F#'],tens:['C#','E'],roles:ROLE_G,scale:SC_G},
-  'C#7':   {sym:'C#7',deg:'Ⅲ7',    tones:['C#','E#','G#','B'],tens:['D','A','E'],roles:ROLE_C,scale:SC_C},
+  'C#7':   {sym:'C#7',deg:'Ⅲ7',    tones:['C#','E#','G#','B'],tens:['D','A','E','F#'],roles:ROLE_C,scale:SC_C},
   'F#m7':  {sym:'F#m7',deg:'Ⅵm7',  tones:['F#','A','C#','E'],tens:['G#','B','D#'],roles:ROLE_F,scale:SC_F},
   'A9sus4':{sym:'A9sus4',deg:'Ⅰ7', tones:['A','C#','E','G'],tens:['B','D','F#'],roles:ROLE_A,scale:SC_A},
   'A/F#':  {sym:'A/F#',deg:'',      tones:['A','C#','E','F#'],tens:[]},
@@ -275,41 +290,19 @@ const PH_CHORDS = {
   'A7':  {sym:'A7(9)',deg:'Ⅰ7',bass:'A2',lo:58,d:{R:'A','3':'C#','5':'E','7':'G','9':'B'},rl:{R:'R','3':'3','5':'5','7':'♭7','9':'9'},app:'C',au:'D'}
 };
 const PH_ALL5=['D△9','G#m7','F#m9','C#7','A7'];
-// 練習順: 基本(やさしい4音) → 実譜に出てくる形 → 応用(最後のステップ)
-const PH_BASIC = [
-  {title:'形1「ルート→9th→3rd→5th」(1-2-3-5)',
-   desc:'ルートから上に「ルート・9th・3rd・5th」と並べる、定番の4音パターン。短いので指ならしに最適。ドミナント(C#7)では ♭9 を使うので、ドミナントらしい緊張感になる。',
-   dir:'up',seq:['R','9','3','5'],chords:PH_ALL5,
-   note:{'C#7':'ド#・レ(♭9)・ファ(E#)・ソ#。レ(♭9)を挟むのがドミナントらしい響き。','A7':'ラ・シ・ド#・ミ。'}},
-  {title:'形2「7th からルートへ上がる」(7→R→3→5)',
-   desc:'ルートの1つ下の 7th から入って、ルート・3rd・5th へ。7th→ルートが半音か全音でつながる「着地」の感覚が練習できる。',
-   dir:'up',seq:['7','R','3','5'],chords:PH_ALL5,
-   note:{'D△9':'7th(ド#)→ルート(レ)は半音。','G#m7':'7th(ファ#)→ルート(ソ#)は全音。','C#7':'♭7(シ)→ルート(ド#)は半音。','A7':'♭7(ソ)→ルート(ラ)は全音。'}},
-  {title:'形3「9th から 7→5→3 と降りる」',
-   desc:'上から順にコードトーンを降りてくる基本形。上昇の形と逆向きに弾けるようになると、フレーズの幅が広がる。',
-   dir:'down',seq:['9','7','5','3'],chords:PH_ALL5,
-   note:{'C#7':'9th は ♭9(レ)。ドミナントらしい緊張感のある響きになる。','A7':'シ→ソ(♭7)→ミ(5th)→ド#(3rd)。'}}
-];
+// 最後のステップ用: 実譜の形を別コードへ移す
 const PH_REAL = [
-  {title:'形4「9th から 3→5→7→9 と上がる」(実譜5小節目の形)',
-   desc:'実譜5小節目の D△9(ミ→ファ#→ラ→ド#→ミ)がこれ。11th を使わないので、ドミナント(C#7・A7)を含む5つのコードすべてで濁らない。次の形5は、これに 11th を足した形。',
-   dir:'up',seq:['9','3','5','7','9'],chords:PH_ALL5,
-   note:{'D△9':'実譜5小節目と同じ音。','C#7':'9th は ♭9(レ)から。','A7':'シ(9th)から。11th(レ)を使わないので濁らない。'}},
-  {title:'形5「9th から 3→5→7→9→11 と上がる」(実譜2小節目の形)',
-   desc:'実譜2小節目の F#m9(ソ#・ラ・ド#・ミ・ソ#・シ)の元になっている形。11th は長3度を持つコード(D△, C#7, A7)の上ではぶつかる(濁る)ので、C#7 と A7 は外し、D△9 では 11th を #11(ソ#)に変えた。',
-   dir:'up',seq:['9','3','5','7','9','11'],chords:['F#m9','G#m7','D△9'],
-   note:{'F#m9':'実譜2小節目そのもの。','G#m7':'9th=ラ# から。11th=ド# は G#m7 では安全。','D△9':'11th のソ(G)は 3rd のファ#とぶつかるので、ソ#(#11)に変えて弾く。'}},
-  {title:'形6「3rd の半音下から入って、3→5→7→9 と駆け上がる」(実譜3小節目の形)',
-   desc:'実譜3小節目の D△9(ファ→ファ#→ラ→ド#→ミ)の元になっている形。「接近音(灰)→3rd→5th→7th→9th」。5つのコードすべてで自然に響くので、全部のコードで。「D△9 のフレーズを G#m7 で」弾く練習にもなる。',
+  {title:'形1「3rd の半音下から入って、3→5→7→9 と駆け上がる」(実譜3小節目の形)',
+   desc:'前のステップの「半音下から入る:経 → 3 → 5 → 7 → 9」(実譜3小節目)を、別のコードに移す練習。「接近音(灰)→3rd→5th→7th→9th」。5つのコードすべてで自然に響くので、全部のコードで。「D△9 のフレーズを G#m7 で」弾く練習にもなる。',
    dir:'up',seq:['app','3','5','7','9'],chords:PH_ALL5,
-   note:{'D△9':'元のフレーズ(実譜3小節目と同じ音)。','G#m7':'接近音は 9th の「ラ#(A#)」で、3rd=シ へ半音で入って 3→5→7→9。','F#m9':'接近音は 9th のソ#。実譜2小節目の上昇と同じ形。','C#7':'接近音は「ミ(E)」で、3rd=ファ(E#)へ半音で入る。9th は ♭9(レ)になる。','A7':'接近音は「ド(ナチュラル)」。実譜4小節目にも出てくるブルーノート的な音。'}}
+   note:{'D△9':'元のフレーズ(実譜3小節目と同じ音)。','G#m7':'接近音は 9th の「ラ#(A#)」で、3rd=シ へ半音で入って 3→5→7→9。','F#m9':'接近音は 9th のソ#。実譜2小節目の上昇と同じ形。','C#7':'接近音は「ミ(E)」で、3rd=ファ(E#)へ半音で入る。9th は ♭9(レ)になる。','A7':'接近音は「ド(ナチュラル)」。実譜4小節目にも出てくる、スケール外の飾りの音。'}}
 ];
 const PH_EXT = [
-  {title:'形7「3→5→7→9 と上がって 7→5 と戻る」(往復)',
-   desc:'形6 から接近音を外して、上がったあとにコードトーンで折り返す形。上昇だけでなく「戻る」動きを入れると、フレーズに呼吸が生まれる。',
+  {title:'形2「3→5→7→9 と上がって 7→5 と戻る」(往復)',
+   desc:'形1 から接近音を外して、上がったあとにコードトーンで折り返す形。上昇だけでなく「戻る」動きを入れると、フレーズに呼吸が生まれる。',
    dir:'up',seq:['3','5','7','9','7<','5<'],chords:PH_ALL5,
    note:{}},
-  {title:'形8「3rd を上と下の半音で挟む」(囲い込み)',
+  {title:'形3「3rd を上と下の半音で挟む」(囲い込み)',
    desc:'3rd の半音上 → 半音下 → 3rd → 5th → 7th。コードトーンを「上下から挟んで」着地する定番の飾りで、フレーズに色気が出る。挟む2音はスケール外のこともあるが、すぐ 3rd に解決するので気にならない。',
    dir:'up',seq:['appU','app<','3','5','7'],chords:PH_ALL5,
    note:{'D△9':'ソ(上)→ファ(下)→ファ#(3rd) と進む。','G#m7':'ド(上)→ラ#(下・9th)→シ(3rd)。','F#m9':'ラ#(上)→ソ#(下・9th)→ラ(3rd)。','C#7':'ファ#(上)→ミ(下)→ファ(E#・3rd)。','A7':'レ(上)→ド(下)→ド#(3rd)。'}}
@@ -317,14 +310,9 @@ const PH_EXT = [
 /* 各形の元ネタ(intro.json と照合済み)。bars は 0 始まりの小節番号(表示は +1) */
 const GEN_TXT='実譜にはない一般的な型です(こちらで用意したもの)。実譜のフレーズと同じ「コードトーンの番号の並び」という考え方で作っています。';
 const PH_SRC = {
-  '形1':{generic:true,text:GEN_TXT},
-  '形2':{bars:[6],text:'実譜 小節7(拍24.0〜25.0・D△9):ド#→レ→ファ#→ラ→ド#(7→R→3→5→7)。'},
-  '形3':{generic:true,text:GEN_TXT},
-  '形4':{bars:[4,1],text:'実譜 小節5(拍16.5〜17.5・D△9):ミ→ファ#→ラ→ド#→ミ。小節2(拍4.5〜5.0・F#m9)の ソ#→ラ→ド#→ミ→ソ# も同じ並び。'},
-  '形5':{bars:[1],text:'実譜 小節2(拍4.5〜5.25・F#m9):ソ#→ラ→ド#→ミ→ソ#→シ。'},
-  '形6':{bars:[2],text:'実譜 小節3(拍8.5〜9.25・D△9):ファ→ファ#→ラ→ド#→ミ。'},
-  '形7':{generic:true,text:GEN_TXT},
-  '形8':{generic:true,text:GEN_TXT}
+  '形1':{bars:[2],text:'実譜 小節3(拍8.5〜9.25・D△9):ファ→ファ#→ラ→ド#→ミ。'},
+  '形2':{generic:true,text:GEN_TXT},
+  '形3':{generic:true,text:GEN_TXT}
 };
 /* ============ 転回形 ============ */
 // 4和音(ルート・3rd・5th・7th)の並べ替え。一番下の音=lo(MIDI56)以上で最も近い音、残りはその上に積む
@@ -573,6 +561,28 @@ function barEvents(hand,bar,src){
   if(cur<384) pushRests(evs,cur,384);
   return evs;
 }
+function buildHand(evs,hand){
+  const {StaveNote,Voice,Accidental,Tuplet,Dot}=VF;
+  const clef=hand==='R'?'treble':'bass';
+  const notes=[],tups=[]; let tgrp=[];
+  evs.forEach(ev=>{
+    const dur=ev.s+(ev.dot?'d':'');
+    let sn;
+    if(!ev.notes){ sn=new StaveNote({clef,keys:[hand==='R'?'b/4':'d/3'],duration:dur+'r'}); }
+    else{
+      const ps=[...new Set(ev.notes.map(n=>n.p))].sort((a,b)=>a-b);
+      const keys=ps.map(p=>{const nm=midiName(p);return nm[0].toLowerCase()+(nm[1]==='#'?'#':'')+'/'+(Math.floor(p/12)-1);});
+      sn=new StaveNote({clef,keys,duration:dur});
+      ps.forEach((p,i)=>{ const c=state.color?COL[roleOf(p,ev.tick)]:'#000'; sn.setKeyStyle(i,{fillStyle:c,strokeStyle:c}); });
+    }
+    if(ev.dot) Dot.buildAndAttach([sn],{all:true});
+    ev.sn=sn; notes.push(sn);
+    if(ev.trip){ tgrp.push(sn); if(tgrp.length===3){tups.push(new Tuplet(tgrp));tgrp=[];} } else tgrp=[];
+  });
+  const v=new Voice({num_beats:4,beat_value:4}).setMode(Voice.Mode.SOFT).addTickables(notes);
+  Accidental.applyAccidentals([v],'A');
+  return {notes,v,tups};
+}
 function renderBar(el,bar,opt){
   const {Renderer,Stave,StaveNote,Voice,Formatter,Accidental,Beam,Tuplet,Dot,StaveConnector}=VF;
   const evR=barEvents('R',bar,opt.src), evL=barEvents('L',bar,opt.src);
@@ -586,28 +596,7 @@ function renderBar(el,bar,opt){
   new StaveConnector(top,bot).setType(StaveConnector.type.SINGLE_LEFT).setContext(ctx).draw();
   new StaveConnector(top,bot).setType(StaveConnector.type.SINGLE_RIGHT).setContext(ctx).draw();
 
-  function build(evs,hand){
-    const clef=hand==='R'?'treble':'bass';
-    const notes=[],tups=[]; let tgrp=[];
-    evs.forEach(ev=>{
-      const dur=ev.s+(ev.dot?'d':'');
-      let sn;
-      if(!ev.notes){ sn=new StaveNote({clef,keys:[hand==='R'?'b/4':'d/3'],duration:dur+'r'}); }
-      else{
-        const ps=[...new Set(ev.notes.map(n=>n.p))].sort((a,b)=>a-b);
-        const keys=ps.map(p=>{const nm=midiName(p);return nm[0].toLowerCase()+(nm[1]==='#'?'#':'')+'/'+(Math.floor(p/12)-1);});
-        sn=new StaveNote({clef,keys,duration:dur});
-        ps.forEach((p,i)=>{ const c=state.color?COL[roleOf(p,ev.tick)]:'#000'; sn.setKeyStyle(i,{fillStyle:c,strokeStyle:c}); });
-      }
-      if(ev.dot) Dot.buildAndAttach([sn],{all:true});
-      ev.sn=sn; notes.push(sn);
-      if(ev.trip){ tgrp.push(sn); if(tgrp.length===3){tups.push(new Tuplet(tgrp));tgrp=[];} } else tgrp=[];
-    });
-    const v=new Voice({num_beats:4,beat_value:4}).setMode(Voice.Mode.SOFT).addTickables(notes);
-    Accidental.applyAccidentals([v],'A');
-    return {notes,v,tups};
-  }
-  const R=build(evR,'R'), L=build(evL,'L');
+  const R=buildHand(evR,'R'), L=buildHand(evL,'L');
   [R,L].forEach(X=>{ X.beams=[]; try{X.beams=Beam.generateBeams(X.notes);}catch(e){} }); // 音符を描く前に作る(フラッグを消すため)
   const fm=new Formatter(); fm.joinVoices([R.v]); fm.joinVoices([L.v]);
   fm.format([R.v,L.v],top.getNoteEndX()-top.getNoteStartX()-26);
@@ -630,6 +619,18 @@ function renderBar(el,bar,opt){
     ctx.setFillStyle('#111'); ctx.fillText(e.sym,x,28-flip*13);
   });
 }
+/* コード e の上で notes ns を弾くときの鍵盤(コードトーン・テンション・スケール・実際に弾く音) */
+function segKeyboard(e,ns){
+  const [lo,hi]=normRange(Math.min(...ns.map(n=>n.p)),Math.max(...ns.map(n=>n.p)));
+  const hl={};
+  for(let m=lo;m<=hi;m++){
+    const pc=m%12;
+    if(e.tp.includes(pc)||e.np.includes(pc)){
+      const r=e.rp[pc]; hl[m]={cls:r?roleCls(r):'ct',txt:r||''};
+    }
+  }
+  return keyboard(hl,{range:[lo,hi],scale:e.scaleSet,played:new Set(ns.map(n=>n.p))});
+}
 /* 小節内のコード区間ごとに「鍵盤+弾く順」パネルを作る */
 function segPanels(b){
   const t0=b*384,t1=t0+384; const wrap=document.createElement('div'); wrap.className='segs';
@@ -638,15 +639,6 @@ function segPanels(b){
     if(s>=end) return;
     const ns=INTRO_NOTES.filter(n=>n.on>=s&&n.on<end);
     if(!ns.length) return;
-    const [lo,hi]=normRange(Math.min(...ns.map(n=>n.p)),Math.max(...ns.map(n=>n.p)));
-    const hl={};
-    for(let m=lo;m<=hi;m++){
-      const pc=m%12;
-      if(e.tp.includes(pc)||e.np.includes(pc)){
-        const r=e.rp[pc]; hl[m]={cls:r?roleCls(r):'ct',txt:r||''};
-      }
-    }
-    const played=new Set(ns.map(n=>n.p));
     const seq=(hand)=>{
       const by=new Map(); ns.filter(n=>n.h===hand).sort((a,c)=>a.on-c.on||a.p-c.p).forEach(n=>{ if(!by.has(n.on))by.set(n.on,[]); by.get(n.on).push(n); });
       return [...by.values()].map(g=>{
@@ -657,24 +649,27 @@ function segPanels(b){
     const p=document.createElement('div'); p.className='seg';
     p.innerHTML=`<div class="sh"><b>${e.sym}</b><span class="deg">${e.deg}</span><button class="btn">▶</button></div>
       <div class="sc">スケール: ${e.scaleName}</div>
-      <div class="kb">${keyboard(hl,{range:[lo,hi],scale:e.scaleSet,played})}</div>
+      <div class="kb">${segKeyboard(e,ns)}</div>
       <div class="sq"><div><span class="tag">右手</span>${seq('R')||'—'}</div><div><span class="tag">左手</span>${seq('L')||'—'}</div></div>`;
     p.querySelector('button').onclick=()=>playItems(ns.map(n=>({m:n.p,at:(n.on-s)/96,d:n.du/96})));
     wrap.appendChild(p);
   });
   return wrap;
 }
+function kbLegend(){
+  const lg=document.createElement('div'); lg.className='kblegend';
+  lg.innerHTML=`<b>鍵盤の見方</b>:
+    <span><span class="dot" style="background:var(--ct)"></span>コードトーン(R=ルート/3/5/7)</span>
+    <span><span class="dot" style="background:var(--ten)"></span>テンション(9・11・13 など)</span>
+    <span><span class="dot" style="background:#dbe7ff;border:1px solid #9aa3af"></span>スケール上の音</span>
+    <span><span class="dot" style="background:#fff;border:2px solid #111"></span>この区間で実際に弾く音(色なし白鍵の丸=スケール外の経過音)</span>`;
+  return lg;
+}
 function makeBarsView(b0,b1,opt){
   opt=opt||{};
   const box=document.createElement('div'); box.className='bars';
   if(opt.kb){
-    const lg=document.createElement('div'); lg.className='kblegend';
-    lg.innerHTML=`<b>鍵盤の見方</b>:
-      <span><span class="dot" style="background:var(--ct)"></span>コードトーン(R=ルート/3/5/7)</span>
-      <span><span class="dot" style="background:var(--ten)"></span>テンション(9・11・13 など)</span>
-      <span><span class="dot" style="background:#dbe7ff;border:1px solid #9aa3af"></span>スケール上の音</span>
-      <span><span class="dot" style="background:#fff;border:2px solid #111"></span>この区間で実際に弾く音(色なし白鍵の丸=スケール外の経過音)</span>`;
-    box.appendChild(lg);
+    box.appendChild(kbLegend());
   }
   for(let b=b0;b<=b1;b++){
     const d=document.createElement('div'); d.className='sbar';
@@ -687,6 +682,117 @@ function makeBarsView(b0,b1,opt){
   }
   return box;
 }
+
+/* ============ 実譜の断片(短いフレーズ)カード ============ */
+/* コード e の上で音 p(on で鳴る)が何の役割か。コードトーン/テンションなら度数、どちらでもなければ「経」 */
+function roleTxt(p,on){
+  const e=chordAt(on), pc=p%12;
+  if(e.tp.includes(pc)||e.np.includes(pc)) return e.rp[pc]||'';
+  return '経';
+}
+function renderFragStaff(el,rh,bar){
+  const {Renderer,Stave,Formatter,Beam}=VF;
+  const evs=barEvents('R',bar,rh);
+  while(evs.length&&!evs[0].notes) evs.shift();
+  while(evs.length&&!evs[evs.length-1].notes) evs.pop();
+  const nEv=evs.filter(e=>e.notes).length;
+  const lowP=Math.min(...rh.map(n=>n.p)), hiP=Math.max(...rh.map(n=>n.p));
+  const topY=hiP>=81?52:42, W=Math.min(760,Math.max(300,110+nEv*46)), Ht=topY+(lowP<55?135:lowP<60?110:90)+(hiP>=72?40:0);
+  const r=new Renderer(el,Renderer.Backends.SVG); r.resize(W,Ht); const ctx=r.getContext();
+  const st=new Stave(2,topY,W-8); st.addClef('treble').addKeySignature('A'); st.setContext(ctx).draw();
+  const X=buildHand(evs,'R');
+  let beams=[]; try{beams=Beam.generateBeams(X.notes);}catch(e){} // 音符を描く前に作る(フラッグを消すため)
+  const fm=new Formatter(); fm.joinVoices([X.v]);
+  fm.format([X.v],st.getNoteEndX()-st.getNoteStartX()-22);
+  X.v.draw(ctx,st);
+  beams.forEach(b=>b.setContext(ctx).draw()); X.tups.forEach(t=>t.setContext(ctx).draw());
+  // コード名ラベル(最初の音の上 + 途中でコードが変わる位置)
+  const first=evs.find(e=>e.notes); if(!first) return;
+  ctx.setFont('sans-serif',12,'bold'); ctx.setFillStyle('#111');
+  const marks=[{tick:first.tick,sym:chordAt(first.tick).sym}];
+  TL.forEach(e=>{ if(e.start>first.tick){ const c=evs.find(v=>v.notes&&v.tick>=e.start); if(c&&!marks.some(m=>m.tick===c.tick)) marks.push({tick:c.tick,sym:e.sym}); } });
+  marks.forEach(m=>{ const ev=evs.find(v=>v.notes&&v.tick===m.tick); ctx.fillText(m.sym,ev.sn.getAbsoluteX()-4,topY-14); });
+}
+function makeFragCard(f,idx){
+  const t0=Math.round(f.a*96), t1=Math.round(f.b*96), bar=Math.floor(t0/384);
+  const rh=INTRO_NOTES.filter(n=>n.h==='R'&&n.on>=t0&&n.on<t1);
+  const lh=INTRO_NOTES.filter(n=>n.h==='L'&&n.on<t1&&n.on+n.du>t0).sort((a,b)=>a.on-b.on);
+  const by=new Map(); rh.slice().sort((x,y)=>x.on-y.on||x.p-y.p).forEach(n=>{ if(!by.has(n.on))by.set(n.on,[]); by.get(n.on).push(n); });
+  const one=n=>{ const r=roleTxt(n.p,n.on); return `<span style="color:${COL[roleOf(n.p,n.on)]}">${lab(midiName(n.p))}${r?`<small>(${r})</small>`:''}</span>`; };
+  const seq=[...by.values()].map(g=>g.length>1?'<span class="chd">('+g.map(one).join(' ')+')</span>':one(g[0])).join(' → ');
+  const segs=[];
+  TL.forEach((e,i)=>{
+    const s=Math.max(e.start,t0), end=Math.min(i+1<TL.length?TL[i+1].start:1e9,t1);
+    if(s>=end) return;
+    const sn=rh.filter(n=>n.on>=s&&n.on<end);
+    if(sn.length) segs.push({e,sn});
+  });
+  const card=document.createElement('div'); card.className='card frag';
+  card.innerHTML=`<div class="h"><span class="fno">${idx}</span><b>${f.title}</b><button class="btn">▶ 鳴らす</button></div>
+    <div class="fsub">小節${bar+1}(拍${f.a}〜${f.b})・${segs.map(x=>x.e.sym+' '+x.e.deg).join(' → ')}</div>
+    <div class="staff"></div>
+    <div class="fseq">${seq}</div>
+    ${segs.map(x=>`<div class="fp"><div class="sc">${x.e.sym} のスケール: ${x.e.scaleName}</div><div class="kb">${segKeyboard(x.e,x.sn)}</div></div>`).join('')}
+    <div class="lhline">左手(実譜・音名のみ): ${[...new Set(lh.map(n=>lab(midiName(n.p))))].join(' → ')||'—'}</div>
+    <div class="pt">${f.pt}</div>`;
+  try{ renderFragStaff(card.querySelector('.staff'),rh,bar); }catch(e){ card.querySelector('.staff').innerHTML='<span class="err">譜面の描画に失敗: '+e.message+'</span>'; console.error(e); }
+  card.querySelector('button').onclick=()=>playItems([...rh,...lh].map(n=>{
+    const on=Math.max(n.on,t0), off=n.h==='R'?n.on+n.du:Math.min(n.on+n.du,t1+48);
+    return {m:n.p,at:(on-t0)/96,d:Math.max(.1,(off-on)/96)};
+  }));
+  return card;
+}
+/* コードごとの「使える音」説明(TL_DEF から自動生成) */
+function chordInfoHtml(key){
+  const d=TL_DEF[key]; const nm=(arr)=>arr.map(n=>`${lab(n)}(${d.roles[n]||''})`).join('・');
+  return `<b>${d.sym}</b>(${d.deg}): コードトーン ${nm(d.tones)} / テンション ${nm(d.tens)} / スケール ${d.scale.name}`;
+}
+const FRAG_GROUPS = [
+ {title:'Ⅳ(D△7・D△9)の上のフレーズ',keys:['D△9'],list:[
+  {a:24,b:25.25,title:'コードトーンだけ:7 → R → 3 → 5 → 7',
+   pt:'ぜんぶコードトーン。ド#(7th)から入って、レ(ルート)・ファ#(3rd)・ラ(5th)・ド#(7th)と、D△9 の4つの音を下から順に拾うだけ。まずここで「D△9 の4音がどこにあるか」を指に覚えさせる。(実譜 小節7)'},
+  {a:16.5,b:17.75,title:'テンションで始まりテンションで終わる:9 → 3 → 5 → 7 → 9',
+   pt:'ミ(9th)から、ファ#・ラ・ド#(3rd・5th・7th)と上がって、最後はまた ミ(9th)。前のカードの形に、9th(オレンジ)を頭とおしりにつけた形。(実譜 小節5)'},
+  {a:8.5,b:9.5,title:'半音下から入る:経 → 3 → 5 → 7 → 9',
+   pt:'前のカードの「3→5→7→9」の頭に、ファ#の半音下のファ(灰色)を足した形。ファ・ファ#・ラは三連符でひと息に。ファはスケール(D リディアン)の外の音だけど、すぐ半音上の ファ#(3rd)に解決するので濁らない。(実譜 小節3)'},
+  {a:0.5,b:1.75,title:'3rd を半音下で飾る:3 → 経 → 3 → 5 → 9',
+   pt:'ファ#(3rd)を、半音下のファ(灰色)で一度かすめてから、ラ(5th)、ミ(9th)へ。灰色の音のあとは必ず元のコードトーンに戻る、というパターン。(実譜 小節1)'}
+ ]},
+ {title:'Ⅵm(F#m7・F#m9)の上のフレーズ',keys:['F#m9'],list:[
+  {a:4.5,b:5.5,title:'駆け上がり:9 → ♭3 → 5 → ♭7 → 9 → 11',
+   pt:'ソ#(9th)から、ラ・ド#・ミ(♭3・5・♭7)と上がって、ソ#(9th)・シ(11th)で止まる。D△9 のカード「9→3→5→7→9」と同じ形に、11th を足しただけ。最初の4音は32分音符でとても速いが、ぜんぶコードの音。(実譜 小節2)'},
+  {a:20.5,b:21.75,title:'降りてくる:(♭7+9) → 5 → 11 → ♭3 → 9',
+   pt:'上の駆け上がりの逆向き。ミ+ソ#の2音で入って、ド#・シ・ラ・ソ#と下がり、最後は 9th(ソ#)に着地。スケールの音を全部通らず、コードトーンとテンションだけを拾って降りている。(実譜 小節6)'},
+  {a:12,b:13.75,title:'F#m7:和音と単音のかけ合い',
+   pt:'ミ+ソ#(♭7+9th)の和音 → ラ(♭3) → ラ+レ#(♭3+13th)の和音 → ミ(♭7) → ド#(5)。レ#(13th)は F#ドリアンの特徴音で、F#m7 をおしゃれに聞かせている音。(実譜 小節4)'}
+ ]},
+ {title:'ドミナント(G#m7・C#7)の上のフレーズ',keys:['G#m7','C#7'],list:[
+  {a:9.75,b:11,title:'G#m7:上3音の和音から降りる',
+   pt:'シ・レ#・ファ#(♭3・5・♭7)の和音で入って、ミ(♭13)→ド#(11)→シ(♭3)と降りる。G#m7 の中ではミ・ド#がテンション(オレンジ)。(実譜 小節3)'},
+  {a:11,b:12,title:'C#7:ド+ミの和音 → ♭7 → ♭13 → 11',
+   pt:'ド(灰色)+ミ(#9)の和音のあと、シ(♭7)・ラ(♭13)・ファ#(11th)と降りる。ド(ナチュラル)だけがスケール外。ファ#は次の F#m7 のルートで、そこへの橋渡し。(実譜 小節3)'},
+  {a:27,b:28,title:'C#7:3rd+♭13 の和音 → #9 → ♭9 → 11',
+   pt:'ファ(3rd)+ラ(♭13)の和音から、ミ(#9)・レ(♭9)と半音ずつ降りて、最後に低いファ#(11th)へ大きく降りる。ドミナントのテンション(#9・♭9・♭13)が全部入っている。(実譜 小節7)'},
+  {a:2.25,b:3.75,title:'C#7alt:R → ♭7 → 経 → ♭7 → ♭13',
+   pt:'ド#(ルート)からシ(♭7)へ。シをド(灰色)で上から飾って(シ→ド→シ)、ラ(♭13)へ降りる。ド(ナチュラル)はスケール外の飾りの音。(実譜 小節1)'},
+  {a:17.75,b:19.75,title:'C#7alt:ファ・ラ・シ を保って上の音だけ動かす',
+   pt:'ファ+ラ+シ+レ(3・♭13・♭7・♭9)の和音 → 一番上だけレ→ド#(♭9→R)に動かす → ファ+ラ#(灰色) → シ → ラ と降りる。ファ・ラ・シは同じ指のまま、上の1音だけが動く。(実譜 小節5)'}
+ ]},
+ {title:'Ⅰ7(A13sus・A9sus4)の上のフレーズ',keys:['A13sus'],list:[
+  {a:21.75,b:23,title:'テンションだけで作る:R → 13 → 9 → 11',
+   pt:'ラ(ルート)→ファ#(13th)→シ(9th)→レ(11th)。3rd のド#は一度も弾かない。9・11・13 のテンションだけで、ふわっと浮いた響き(sus)を作っている。(実譜 小節6)'},
+  {a:23,b:24,title:'(9+13)の和音 → 5 → 11 → 5',
+   pt:'シ+ファ#(9th+13th)の和音から、ミ(5th)・レ(11th)・ミ(5th)。レとミを行き来して、次の小節の D△9 につなぐ。(実譜 小節6)'},
+  {a:6.25,b:7.5,title:'ミクソリディアンの音:13 → ♭7 → R(+経)→ R → ♭7',
+   pt:'ファ#(13th)・ソ(♭7)・ラ(ルート)と上がって、ラの隣に半音上のラ#(灰色)を一瞬ぶつけてから、ラ→ソへ戻る。ラ#だけがスケール外の飾り。(実譜 小節2)'},
+  {a:14.5,b:16,title:'A9sus4:13 → 5 → (♭7+経)→ 9 → R → 13',
+   pt:'ファ#(13th)→ミ(5th)→ソ+ド(♭7+灰色)の和音 → シ(9th)→ラ(ルート)→ファ#(13th)。3rd のド#は弾かない。ド(ナチュラル)だけがスケール外。(実譜 小節4)'}
+ ]},
+ {title:'小節8:コード全体が半音ずつ下がる',keys:[],desc:'ここだけはスケールもコードトーンの番号も関係なく、<b>同じ形の和音を半音ずつ平行移動</b>しているだけ(ミ→レ#→レ、ラ→ソ#→ソ、ド#→ド→シ)。鍵盤の「スケール」の薄い青がないのはそのため。',list:[
+  {a:28,b:30,title:'平行下降:A/F# → G#/F → G/E',
+   pt:'ミ・ラ・ド#(A/F#)→ レ#・ソ#・ド(G#/F)→ レ・ソ・シ(G/E)。右手の形を保ったまま半音ずつ下げる。左手も F# → F → E と半音ずつ下がる。(実譜 小節8)'}
+ ]}
+];
 
 /* ============ 練習ステップ定義 ============ */
 const STEPS = [
@@ -727,16 +833,11 @@ const STEPS = [
   do:['右手でスケールを8分音符で上行→下行。左手は、そのコードのルートを全音符で押さえたまま。','♩=60 → 80。青い音(コードトーン)を少し強く弾いて、「着地点」を耳に入れる。','D → C# → F# → A の順に、1コード=1小節でつないで弾く(右手は上行だけでOK)。'],
   think:['イントロの右手の音は、ほとんどがこの5つのスケールの音でできている(灰色の経過音だけが例外)。','隣のコードとの違いは1〜2音だけ:C#7 では「ミ」が「ファ(E#)」に、F#m7 では「レ#」が出てきて、A7 では「ソ#」が「ソ」に変わる。この「変わる音」が各コードの色。','青=コードトーン(着地点)、オレンジ=テンション(色づけ)。スケール=「コードトーン+テンションを全部並べたもの」と見ると分かりやすい。'],
   cards:{kind:'scale',list:SCALE_CARDS}},
- {id:'fm1',title:'フレーズの部品①:やさしい4音の形',goal:'フレーズを「コードトーンの番号の並び」として覚える(まず4音)',
-  do:['下のカードを、1つの形ずつ、5つのコード全部で弾く。左手はそのコードのルート(全音符)。','♩=60から。コード名を見た瞬間に、番号の並びで弾けるまで。','慣れたら丸サ進行(D△7 → C#7 → F#m7 → A7)に合わせて、1コード=1小節で同じ形を順番に。'],
-  think:['フレーズ=「コードトーンの番号の並び」。同じ形を別のコードに当てはめると、音は変わっても「形」は同じ。','形2 は実譜7小節目(ド#→レ→ファ#→ラ…)に出てくる。形1・形3 は実譜にそのままは出てこない一般的な型だが、同じ「コードトーンの番号」の考え方で作ってある(各形の元ネタはカードの上に表示)。','青=コードトーン、オレンジ=テンション(9th など)。スケールのステップで弾いたスケールの中から、この番号の音を拾っているだけ。'],
-  note:'8分音符で書いてあります。まずゆっくり弾いてください。',
-  groups:PH_BASIC.map(phGroup)},
- {id:'fm2',title:'フレーズの部品②:実譜に出てくる形',goal:'イントロの実際のフレーズの元になっている形を、コードの上で練習する',
-  do:['形4(9→3→5→7→9)・形5(それに 11th を足した形)・形6(3rd の半音下から入る)を、まず元のコードで弾く(形4=D△9、形5=F#m9、形6=D△9)。','そのあと別のコードでも弾く。ぶつかる組み合わせ(11th など)は外してある。','弾けたら、このあとの実譜の該当小節(形4=5小節目、形5=2小節目、形6=3小節目)を探してみる。'],
-  think:['形5 は実譜2小節目(F#m9)、形6 は実譜3小節目(D△9)、形4 は5小節目(D△9)の元になっている形。','実譜では、この形に「リズムの崩し(16分・32分・三連符)」と「経過音」が足されて、本物のフレーズになっている。','長3度を持つコード(D△、C#7、A7)の上で 11th を弾くと濁るので、その形は外すか #11 に変えてある。'],
-  note:'実譜は16分音符や32分音符です。ここでは8分音符で書いてあるので、まずゆっくり弾いてから、少しずつ速くします。',
-  groups:PH_REAL.map(phGroup)},
+ {id:'fr1',title:'実譜を短いフレーズに切って、音の役割を確かめる',goal:'実際のイントロを2〜8音ずつに分けて、「コードトーン・テンション・スケールのどれを弾いているか」を見ながら弾く',
+  do:['カードを1枚ずつ。まず「弾く順」の行(色つきの音名と度数)を見ながら、右手だけをゆっくり(♩=60)。左手はそのコードのルートを全音符で。','鍵盤を見る:色つきの鍵=コードトーン/テンション、薄い青=スケール上の音、白丸=実際に弾く音。白丸が「スケールの中からどの音を拾っているか」を確かめる。','音名ではなく度数(9 → 3 → 5 → 7 …)で言いながら、もう一度弾く。灰色の音は「経過音」と声に出す。','弾けたら、同じコードのカードを続けて弾く(例:Ⅳ のカード4枚をつなぐ)。最後に実譜どおりのリズムで。'],
+  think:['実譜のフレーズは「スケールを順番に弾く」のではなく、<b>コードトーンとテンションを、1つ飛ばしや2つ飛ばしで拾っている</b>。鍵盤の白丸が、薄い青の上を飛び飛びに乗っているのが見えるはず。','灰色(スケール外)の音は、コードトーンの半音上か半音下にあって、すぐ近くのコードトーンに解決する。カードの「弾く順」で、灰色のあとに必ずコードトーンが来ることを確かめる。','ドミナント(G#m7・C#7)のカードは、♭9・#9・♭13 などの「ひねった」テンションが多い。F#m7 に解決する前の緊張感を作っている。','A13sus・A9sus4 のカードは 3rd(ド#)が一度も出てこない。9・11・13 だけで浮いた響きを作っている。'],
+  note:'実譜のリズムのまま書いてあります(32分音符や三連符も出てきます)。最初は音の並びと役割だけ覚えて、速さは後から。左手(実譜)の欄は実際の左手の音(ルートが中心で、7th や次のコードへの先取りが混ざる)。最初は左手をルートの全音符だけにして右手に集中してOK。',
+  fgroups:FRAG_GROUPS},
  {id:'sk1',title:'コードの刻みだけ(右手=先取りの和音)',goal:'メロディを抜いて、「和音がどのタイミングで入るか」だけを練習する',
   do:['右手は和音(同時に鳴らす音)だけを、実際のリズムで弾く。左手は譜面どおり。','▶で聞いて、手を叩いて和音のタイミングをつかんでから、両手で。','1〜4小節をそれぞれ単独で弾けたら、4小節通して。'],
   think:['この和音の刻みが、メロディの下で鳴っているハーモニーそのもの。先取りなので「拍の16分前」に入る。','数え方:「1 e & a」の a(=拍の直前)に和音が入る。例えば小節1の最後の和音は、3拍目のベース C# の直前。','青=コードトーン、オレンジ=テンション。各和音がテンションのステップで見た「テンション入りの形」になっているか確認。'],
@@ -760,11 +861,11 @@ const STEPS = [
   do:['左手だけ → 右手だけ(2小節ごと)→ 両手の順で通す。','5〜7小節は1〜3小節の繰り返し+メロディが1オクターブ上、と理解して弾く。','最後に「今のコード名を心の中で言いながら」弾く(♩=60から)。'],
   think:['A ブロック(1-2, 5-6)=丸サ進行そのもの。B ブロック(3-4, 7-8)=間に G#m7 を挟んだ変形。','8小節目は F#m(A/F#)→ G#/F → G/E と、コード全体が半音ずつ下がる「平行移動」。ベースも F#→F→E と半音下行。','ここまでできたら:コード名を言える/ルートとテンションを言える/先取りのタイミングが分かる、のチェックリストが全部埋まるはず。'],
   bars:[0,7]},
- {id:'tr1',title:'フレーズの形を広げる(アドリブへの第一歩)',goal:'ここまでの形に「戻る」「挟む」を足して、自分で組み合わせられるようにする',
-  do:['形7(往復)と形8(囲い込み)を、5つのコードで弾く。左手はそのコードのルート。','形1〜8から好きなものを選んで、丸サ進行(D△7 → C#7 → F#m7 → A7)の各コードで、同じ形を1コード=1小節で順番に弾く。','リズム(8分→16分→先取り)を変えて遊ぶ。コード名を見た瞬間に弾けるようになったら、形を2つ組み合わせてみる。'],
-  think:['形2・4・5・6 は実譜に出てくる形、形1・3・7・8 は一般的な型(実譜にはない)。どちらも、コードトーンの番号で覚えれば別のコードに移せる。','接近音(灰)は、コードトーンの半音上や半音下から入る飾り。コードトーンの隣の半音は、ほぼどのコードでも使える。','コードによっては合わない組み合わせがある(長3度のコードの上の 11th など)。「濁ったら避ける」を耳で覚えるのもアドリブの一部。','ここにある形は一例。実譜の他のフレーズ(小節4や小節5〜7の高音域)も、コードトーンの番号に直すと同じように移せる。'],
+ {id:'tr1',title:'フレーズの形を別のコードに移す(アドリブへの第一歩)',goal:'実譜のフレーズを「番号の並び」として覚え直して、ほかのコードの上でも弾けるようにする',
+  do:['前のステップのカードから好きな断片を1つ選んで、別のコードの上で「度数の並び」を保ったまま弾く(例:D△9 の「9 → 3 → 5 → 7 → 9」を G#m7 や F#m9 の上で)。','下の形1〜3を、5つのコードで弾く。左手はそのコードのルート。','形を1つ選んで、丸サ進行(D△7 → C#7 → F#m7 → A7)の各コードで、1コード=1小節で順番に弾く。','リズム(8分→16分→先取り)を変えて遊ぶ。慣れたら形を2つ組み合わせてみる。'],
+  think:['フレーズ=「コードトーンの番号の並び」。同じ形を別のコードに当てはめると、音は変わっても「形」は同じ。','接近音(灰)は、コードトーンの半音上や半音下から入る飾り。コードトーンの隣の半音は、ほぼどのコードでも使える。','コードによっては合わない組み合わせがある(長3度のコードの上の 11th など)。「濁ったら避ける」を耳で覚えるのもアドリブの一部。','前のステップのカードは実譜の一部にすぎない。ほかのフレーズも度数に直せば、同じように移せる。'],
   note:'五線譜の灰色は接近音(経過音)、青はコードトーン、オレンジはテンションです。8分音符で書いてあるので、まずゆっくり弾いてから、実際のように16分音符で。',
-  groups:PH_EXT.map(phGroup)}
+  groups:[...PH_REAL,...PH_EXT].map(phGroup)}
 ];
 
 /* ============ 描画 ============ */
@@ -806,6 +907,17 @@ function renderSteps(){
       }
       const cg=document.createElement('div'); cg.className='cards'; g.list.forEach(o=>cg.appendChild(makeCard(o,g.kind||'phrase'))); dt.appendChild(cg); vis.appendChild(dt);
     }); }
+    if(s.fgroups){
+      vis.appendChild(kbLegend());
+      s.fgroups.forEach(g=>{
+        const dt=document.createElement('details'); dt.className='grp'; dt.open=true;
+        const info=g.keys.map(chordInfoHtml).join('<br>');
+        dt.innerHTML=`<summary>${g.title}</summary><p class="gdesc">${g.desc||info}</p>`;
+        const fg=document.createElement('div'); fg.className='frags';
+        g.list.forEach((f,k)=>fg.appendChild(makeFragCard(f,k+1)));
+        dt.appendChild(fg); vis.appendChild(dt);
+      });
+    }
     if(s.bars){ vis.appendChild(makeBarsView(s.bars[0],s.bars[1],{kb:s.kb,src:s.src?srcFor(s.src):null})); }
     if(s.table){
       const t=document.createElement('div'); t.style.marginTop='14px';
