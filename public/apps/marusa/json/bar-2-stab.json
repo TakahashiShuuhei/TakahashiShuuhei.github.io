@@ -1,0 +1,20 @@
+{
+  "title": "丸サ イントロ 小節2(和音の刻みだけ)",
+  "bpm": 80,
+  "notes": [
+    {"pitch":42,"timing":{"beat":0,"duration":1},"velocity":80,"hand":"left"},
+    {"pitch":52,"timing":{"beat":0,"duration":1},"velocity":80,"hand":"left"},
+    {"pitch":45,"timing":{"beat":2,"duration":1},"velocity":80,"hand":"left"},
+    {"pitch":55,"timing":{"beat":2,"duration":1},"velocity":80,"hand":"left"},
+    {"pitch":59,"timing":{"beat":1.75,"duration":0.5},"velocity":80,"hand":"right"},
+    {"pitch":62,"timing":{"beat":1.75,"duration":0.5},"velocity":80,"hand":"right"},
+    {"pitch":66,"timing":{"beat":1.75,"duration":0.5},"velocity":80,"hand":"right"},
+    {"pitch":67,"timing":{"beat":1.75,"duration":0.5},"velocity":80,"hand":"right"},
+    {"pitch":69,"timing":{"beat":2.75,"duration":0.25},"velocity":80,"hand":"right"},
+    {"pitch":70,"timing":{"beat":2.75,"duration":0.25},"velocity":80,"hand":"right"}
+  ],
+  "memos": [
+    {"timing":{"beat":0},"text":"F#m9 Ⅵm9","align":"left","color":"purple"},
+    {"timing":{"beat":1.75},"text":"A13sus4 Ⅰ7","align":"left","color":"purple"}
+  ]
+}

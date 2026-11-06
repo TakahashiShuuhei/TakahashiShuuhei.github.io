@@ -1,0 +1,25 @@
+{
+  "title": "丸サ イントロ 小節3(和音の刻みだけ)",
+  "bpm": 80,
+  "notes": [
+    {"pitch":38,"timing":{"beat":0,"duration":1},"velocity":80,"hand":"left"},
+    {"pitch":50,"timing":{"beat":0,"duration":1},"velocity":80,"hand":"left"},
+    {"pitch":44,"timing":{"beat":2,"duration":1},"velocity":80,"hand":"left"},
+    {"pitch":54,"timing":{"beat":2,"duration":1},"velocity":80,"hand":"left"},
+    {"pitch":37,"timing":{"beat":3,"duration":1},"velocity":80,"hand":"left"},
+    {"pitch":49,"timing":{"beat":3,"duration":1},"velocity":80,"hand":"left"},
+    {"pitch":61,"timing":{"beat":0,"duration":0.5},"velocity":80,"hand":"right"},
+    {"pitch":64,"timing":{"beat":0,"duration":0.5},"velocity":80,"hand":"right"},
+    {"pitch":66,"timing":{"beat":0,"duration":0.5},"velocity":80,"hand":"right"},
+    {"pitch":71,"timing":{"beat":1.75,"duration":0.25},"velocity":80,"hand":"right"},
+    {"pitch":75,"timing":{"beat":1.75,"duration":0.25},"velocity":80,"hand":"right"},
+    {"pitch":78,"timing":{"beat":1.75,"duration":0.25},"velocity":80,"hand":"right"},
+    {"pitch":72,"timing":{"beat":3,"duration":0.25},"velocity":80,"hand":"right"},
+    {"pitch":76,"timing":{"beat":3,"duration":0.25},"velocity":80,"hand":"right"}
+  ],
+  "memos": [
+    {"timing":{"beat":0},"text":"D△9 Ⅳ△9","align":"left","color":"purple"},
+    {"timing":{"beat":1.75},"text":"G#m7 Ⅶm7","align":"left","color":"purple"},
+    {"timing":{"beat":3},"text":"C#7 Ⅲ7","align":"left","color":"purple"}
+  ]
+}

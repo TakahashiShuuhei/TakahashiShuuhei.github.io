@@ -125,3 +125,6 @@ footer{color:var(--sub);font-size:12.5px;margin-top:30px}
 .toc li a:hover{text-decoration:underline}
 .okmark{color:var(--ok);font-weight:700}
 details.panel>summary{cursor:pointer;font-weight:700;font-size:16px}
+.btn.pt{background:#ecfdf5;border-color:#86efac;color:#166534}
+.btn.pt:hover{border-color:#16a34a;color:#166534}
+.sbar .h .btn.pt{margin-left:auto}

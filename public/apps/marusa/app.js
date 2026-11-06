@@ -519,6 +519,7 @@ function makeBarsView(b0,b1,opt){
     const chs=TL.filter(e=>e.start>=b*384&&e.start<(b+1)*384).map(e=>e.sym).join(' → ');
     d.innerHTML=`<div class="h"><b>小節${b+1}</b><button class="btn">▶</button><span>${chs}</span></div><div class="sv"></div>`;
     d.querySelector('button').onclick=()=>playBars(b,b,opt.src);
+    d.querySelector('.h').appendChild(ptButton('bar-'+(b+1)+(opt.srcKey?'-'+opt.srcKey:''),()=>barsSong(b,b,opt.src,opt.srcLabel),'🎹 練習','piano-trainer でこの小節を練習(左右の手の切り替えも可)'));
     try{ renderBar(d.querySelector('.sv'),b,{first:b0,src:opt.src}); }catch(e){ d.querySelector('.sv').innerHTML='<span class="err">譜面の描画に失敗: '+e.message+'</span>'; console.error(e); }
     if(opt.kb) d.appendChild(segPanels(b));
     box.appendChild(d);
@@ -561,6 +562,76 @@ function drawEvStaff(el,evs,lowP,hiP,labels){
   const marks=[{tick:first.tick,sym:chordAt(first.tick).sym}];
   TL.forEach(e=>{ if(e.start>first.tick){ const c=evs.find(v=>v.notes&&v.tick>=e.start); if(c&&!marks.some(m=>m.tick===c.tick)) marks.push({tick:c.tick,sym:e.sym}); } });
   marks.forEach(m=>{ const ev=evs.find(v=>v.notes&&v.tick===m.tick); ctx.fillText(m.sym,ev.sn.getAbsoluteX()-4,topY-14); });
+}
+/* ============ piano-trainer 連携 ============ */
+/* 曲データ(JSON)は json/ に置いてあり、piano-trainer へは ?song=<JSONのURL> で渡す。
+   JSON は各ページの 🎹 ボタンが持つ build() から書き出したもの(exportSongs() 参照)。 */
+const PT_URL='https://takahashishuuhei.github.io/apps/piano-practice/';
+const JSON_BASE='https://takahashishuuhei.github.io/apps/marusa/json/';
+const PT_BPM=80;   // JSON に入れる BPM(piano-trainer 側で変更できる)
+const r3=x=>Math.round(x*1000)/1000;
+function ptButton(name,build,label,title){
+  const b=document.createElement('button'); b.className='btn pt'; b.textContent=label||'🎹 piano-trainer で練習';
+  if(title) b.title=title;
+  b._name=name; b._build=build;
+  b.onclick=()=>{ window.open(PT_URL+'?song='+encodeURIComponent(JSON_BASE+name+'.json'),'_blank','noopener'); };
+  return b;
+}
+/* 開いているページにあるボタンの曲データを {ファイル名:曲} で返す(json/ への書き出し用) */
+function exportSongs(){
+  const out={}; document.querySelectorAll('.btn.pt').forEach(b=>{ if(b._name) out[b._name]=b._build(); }); return out;
+}
+const sNote=(p,beat,dur,hand)=>({pitch:p,timing:{beat:r3(beat),duration:Math.max(.05,r3(dur))},velocity:80,hand});
+const memoOf=(beat,text,color,align)=>({timing:{beat:r3(beat)},text,align:align||'center',color:color||'default'});
+function memoColor(ns){ const rs=ns.map(n=>roleOf(n.p,n.on)); return rs.includes('ten')?'orange':rs.includes('ct')?'blue':'default'; }
+function memoText(ns){
+  const g=ns.map(n=>{ const r=roleTxt(n.p,n.on); return lab(midiName(n.p))+(r?`(${r})`:''); });
+  return g.length>1?'('+g.join(' ')+')':g[0];
+}
+/* 窓 [w0,w1) に入るコードの開始位置にコード名メモ(紫) */
+function chordMemos(w0,w1,toBeat){
+  const out=[{tick:w0,e:chordAt(w0)}];
+  TL.forEach(e=>{ if(e.start>w0&&e.start<w1) out.push({tick:e.start,e}); });
+  return out.map(x=>memoOf(toBeat(x.tick),x.e.sym+(x.e.deg?' '+x.e.deg:''),'purple','left'));
+}
+/* 小節 b0〜b1(0始まり)をそのまま。src は簡略版の元データ */
+function barsSong(b0,b1,src,label){
+  const t0=b0*384,t1=(b1+1)*384, toB=t=>(t-t0)/96;
+  const ns=(src||INTRO_NOTES).filter(n=>n.on>=t0&&n.on<t1);
+  return {title:`丸サ イントロ 小節${b0+1}${b1>b0?'-'+(b1+1):''}${label?'('+label+')':''}`,bpm:PT_BPM,
+    notes:ns.map(n=>sNote(n.p,toB(n.on),n.du/96,n.h==='L'?'left':'right')),
+    memos:chordMemos(t0,t1,toB).sort((a,b)=>a.timing.beat-b.timing.beat)};
+}
+/* フレーズ断片: ①コードトーン → ②スケール → ③フレーズ → ④前後つき実譜 をつなげた1曲 */
+function buildFragSong(f,d){
+  const {t0,t1,rh,lh,segs,stages}=d, LEAD=2, GAP=2, notes=[], memos=[]; let c=0;
+  const head=(txt)=>memos.push(memoOf(c,txt,'green','left'));
+  stages.forEach(g=>{
+    const e=segs[0].e; head(`${g.no} ${g.name}(${e.sym})`);
+    const s=c+LEAD, rootPc=e.tp[0], roots=lh.filter(n=>n.p%12===rootPc).map(n=>n.p);
+    g.ms.forEach((m,k)=>{ notes.push(sNote(m,s+k,1,'right')); const ns=[{p:m,on:g.tick}]; memos.push(memoOf(s+k,memoText(ns),memoColor(ns))); });
+    if(roots.length) notes.push(sNote(Math.min(...roots),s,g.ms.length,'left'));
+    c=s+g.ms.length+GAP;
+  });
+  const no=(k)=>stages.length?['①','②','③','④'][k]+' ':'';
+  // フレーズだけ
+  head(`${no(2)}フレーズ(実譜)`); let s=c+LEAD;
+  const groups=new Map(); rh.slice().sort((a,b)=>a.on-b.on).forEach(n=>{ if(!groups.has(n.on))groups.set(n.on,[]); groups.get(n.on).push(n); });
+  rh.forEach(n=>notes.push(sNote(n.p,s+(n.on-t0)/96,n.du/96,'right')));
+  lh.forEach(n=>{ const on=Math.max(n.on,t0), off=Math.min(n.on+n.du,t1+48); notes.push(sNote(n.p,s+(on-t0)/96,(off-on)/96,'left')); });
+  groups.forEach((g,on)=>memos.push(memoOf(s+(on-t0)/96,memoText(g),memoColor(g))));
+  c=s+(t1-t0)/96+GAP;
+  // 前後つき(2拍前〜1拍後・両手)
+  const w0=Math.max(0,t0-192), w1=Math.min(3072,t1+96);
+  head(`${no(3)}前後つき(実譜・両手)`); s=c+LEAD; const toB=t=>s+(t-w0)/96;
+  INTRO_NOTES.filter(n=>n.on<w1&&n.on+n.du>w0).forEach(n=>{
+    const on=Math.max(n.on,w0), off=Math.min(n.on+n.du,w1+24);
+    notes.push(sNote(n.p,toB(on),(off-on)/96,n.h==='L'?'left':'right'));
+  });
+  memos.push(...chordMemos(w0,w1,toB));
+  groups.forEach((g,on)=>memos.push(memoOf(toB(on),memoText(g),memoColor(g))));
+  memos.sort((a,b)=>a.timing.beat-b.timing.beat);   // 時間順(安定ソート)
+  return {title:'丸サ '+f.title,bpm:PT_BPM,notes,memos};
 }
 function makeFragCard(f,idx){
   const t0=Math.round(f.a*96), t1=Math.round(f.b*96), bar=Math.floor(t0/384);
@@ -612,6 +683,7 @@ function makeFragCard(f,idx){
     return {m:n.p,at:(on-t0)/96,d:Math.max(.1,(off-on)/96)};
   });
   card.querySelector('.solo-play').onclick=()=>playItems(soloItems());
+  card.querySelector('.plays').appendChild(ptButton('frag-'+String(f.fid).padStart(2,'0'),()=>buildFragSong(f,{t0,t1,rh,lh,segs,stages}),'🎹 練習','piano-trainer で ①コードトーン→②スケール→③フレーズ→④前後つき を続けて練習(MIDI鍵盤対応)'));
   // 前後(2拍前〜1拍後)を両手で鳴らす(練習する右手の音だけ大きく)→ 2拍の休符 → 練習する部分だけ
   card.querySelector('.main-play').onclick=()=>{
     const w0=Math.max(0,t0-192), w1=Math.min(3072,t1+96);
@@ -676,6 +748,7 @@ const FRAG_GROUPS = [
  ]}
 ];
 
+{ let k=0; FRAG_GROUPS.forEach(g=>g.list.forEach(f=>{ f.fid=++k; })); }   // 断片の通し番号(JSON のファイル名用)
 /* ============ 練習ステップ定義 ============ */
 const STEPS = [
  {id:'s1',title:'左手でルートだけ',goal:'「今どのコードか」を左手の1音で言えるようにする',
@@ -716,7 +789,7 @@ const STEPS = [
   think:['イントロの右手の音は、ほとんどがこの5つのスケールの音でできている(灰色の経過音だけが例外)。','隣のコードとの違いは1〜2音だけ:C#7 では「ミ」が「ファ(E#)」に、F#m7 では「レ#」が出てきて、A7 では「ソ#」が「ソ」に変わる。この「変わる音」が各コードの色。','青=コードトーン(着地点)、オレンジ=テンション(色づけ)。スケール=「コードトーン+テンションを全部並べたもの」と見ると分かりやすい。'],
   cards:{kind:'scale',list:SCALE_CARDS}},
  {id:'fr1',title:'実譜を短いフレーズに切って、音の役割を確かめる',goal:'実際のイントロを2〜8音ずつに分けて、「コードトーン・テンション・スケールのどれを弾いているか」を見ながら弾く',
-  do:['カードを1枚ずつ、<b>①コードトーン → ②スケール → ③フレーズ</b>の順に右手で弾く(♩=60)。①②は、そのフレーズが使う音域だけを上へ。③は「弾く順」の行(色つきの音名と度数)を見ながら。カード右上の「前後つき→単独」で、まず前後の和音の中での位置(練習する音だけ大きく鳴る)を聴いてから、単独で聴く。左手はそのコードのルートを全音符で。','鍵盤を見る:色つきの鍵=コードトーン/テンション、薄い青=スケール上の音、白丸=実際に弾く音。白丸が「スケールの中からどの音を拾っているか」を確かめる。','音名ではなく度数(9 → 3 → 5 → 7 …)で言いながら、もう一度弾く。灰色の音は「経過音」と声に出す。','弾けたら、同じコードのカードを続けて弾く(例:Ⅳ のカード4枚をつなぐ)。最後に実譜どおりのリズムで。'],
+  do:['カードを1枚ずつ、<b>①コードトーン → ②スケール → ③フレーズ</b>の順に右手で弾く(♩=60)。①②は、そのフレーズが使う音域だけを上へ。③は「弾く順」の行(色つきの音名と度数)を見ながら。カード右上の「前後つき→単独」で、まず前後の和音の中での位置(練習する音だけ大きく鳴る)を聴いてから、単独で聴く。左手はそのコードのルートを全音符で。','カード右上の「🎹 練習」で piano-trainer が開き、①→②→③→④(前後つきの実譜)を続けて練習できる(MIDI鍵盤をつなぐと判定してくれる。度数はメモで表示)。','鍵盤を見る:色つきの鍵=コードトーン/テンション、薄い青=スケール上の音、白丸=実際に弾く音。白丸が「スケールの中からどの音を拾っているか」を確かめる。','音名ではなく度数(9 → 3 → 5 → 7 …)で言いながら、もう一度弾く。灰色の音は「経過音」と声に出す。','弾けたら、同じコードのカードを続けて弾く(例:Ⅳ のカード4枚をつなぐ)。最後に実譜どおりのリズムで。'],
   think:['①→②→③と弾き比べると、フレーズ=「②のスケールの中から、①の音を中心に拾って並べ替えたもの」だと分かる。実譜は「スケールを順番に弾く」のではなく、<b>コードトーンとテンションを、1つ飛ばしや2つ飛ばしで拾っている</b>。鍵盤の白丸が、薄い青の上を飛び飛びに乗っているのが見えるはず。','灰色(スケール外)の音は、コードトーンの半音上か半音下にあって、すぐ近くのコードトーンに解決する。カードの「弾く順」で、灰色のあとに必ずコードトーンが来ることを確かめる。','ドミナント(G#m7・C#7)のカードは、♭9・#9・♭13 などの「ひねった」テンションが多い。F#m7 に解決する前の緊張感を作っている。','A13sus・A9sus4 のカードは 3rd(ド#)が一度も出てこない。9・11・13 だけで浮いた響きを作っている。'],
   note:'実譜のリズムのまま書いてあります(32分音符や三連符も出てきます)。最初は音の並びと役割だけ覚えて、速さは後から。左手(実譜)の欄は実際の左手の音(ルートが中心で、7th や次のコードへの先取りが混ざる)。最初は左手をルートの全音符だけにして右手に集中してOK。',
   fgroups:FRAG_GROUPS},
@@ -826,7 +899,7 @@ function renderSteps(){
         dt.appendChild(fg); vis.appendChild(dt);
       });
     }
-    if(s.bars){ vis.appendChild(makeBarsView(s.bars[0],s.bars[1],{kb:s.kb,src:s.src?srcFor(s.src):null})); }
+    if(s.bars){ vis.appendChild(makeBarsView(s.bars[0],s.bars[1],{kb:s.kb,src:s.src?srcFor(s.src):null,srcKey:s.src||'',srcLabel:s.src==='stab'?'和音の刻みだけ':s.src==='melody'?'メロの骨格だけ':''})); }
     if(s.table){
       const t=document.createElement('div'); t.style.marginTop='14px';
       t.innerHTML=`<h3>スケール早見表(各コードで使える音の集合)</h3><table><tr><th>コード</th><th>スケール</th></tr>`+
@@ -853,7 +926,8 @@ $('tg-jp').onchange=e=>{state.jp=e.target.checked;saveSettings();renderSteps();}
 $('tg-col').onchange=e=>{state.color=e.target.checked;saveSettings();renderSteps();};
 $('tg-bpm').onchange=e=>{state.bpm=+e.target.value;saveSettings();};
 $('btn-stop').onclick=stopAll;
-if($('btn-all')) $('btn-all').onclick=()=>playBars(0,7);
+if($('btn-all')){ $('btn-all').onclick=()=>playBars(0,7);
+  const pb=ptButton('intro-all',()=>barsSong(0,7),'🎹 piano-trainer で全体を練習','イントロ1〜8小節を piano-trainer に読み込む'); pb.style.marginLeft='8px'; $('btn-all').after(pb); }
 if($('strip')) renderStrip();
 renderTabs(); renderPager();
 renderSteps();
