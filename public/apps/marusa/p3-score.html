@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>丸サ 練習 3 実譜編</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-page="p3-score.html">
+<div class="toolbar"><div class="in">
+  <label><input type="checkbox" id="tg-jp"> ドレミ表記</label>
+  <label><input type="checkbox" id="tg-col" checked> 譜面の色分け</label>
+  <label>テンポ
+    <select id="tg-bpm"><option>50</option><option>60</option><option>80</option><option>100</option><option>120</option></select>
+  </label>
+  <button class="btn" id="btn-stop">■ 停止</button>
+  <span class="prog" id="prog"></span>
+</div></div>
+
+<div class="wrap">
+<header>
+  <h1>3. 実譜編</h1>
+  <p>実際のイントロを、和音・メロ・先取り・全体の順に弾く。</p>
+  <nav class="tabs" id="tabs"></nav>
+</header>
+
+<details class="panel" id="map">
+  <summary>コード進行の地図(8小節)</summary>
+  <p class="small" style="margin:8px 0 0">A major 基準の度数(Ⅳ△7→Ⅲ7→Ⅵm7→Ⅰ7 = いわゆる「丸サ進行」)。F#m 基準で見ると ♭Ⅵ△7 → Ⅴ7 → Ⅰm7 → ♭Ⅲ7。<br>
+    ※ intro.json から機械的に推定したコードです。G#m7 の細部や 4 小節目の C(ナチュラル)などは耳での確認をおすすめします。</p>
+  <div class="strip" id="strip"></div>
+  <div class="legend" style="margin-top:12px">
+    <span><span class="dot" style="background:var(--ct)"></span>コードトーン</span>
+    <span><span class="dot" style="background:var(--ten)"></span>テンション</span>
+    <span><span class="dot" style="background:var(--pass)"></span>経過音・装飾</span>
+    <span><span class="dot" style="background:var(--lh)"></span>左手</span>
+  </div>
+  <p style="margin:12px 0 0"><button class="btn main" id="btn-all">▶ イントロ全体を再生</button>
+    <span class="small">(テンポは上のセレクタ。原曲は 120)</span></p>
+</details>
+<div id="steps"></div>
+<nav class="pager" id="pager"></nav>
+
+<footer>
+  データ元: intro.json(小節 2-9)。譜面は VexFlow(vendor/vexflow.js)で描画。五線譜は「各音が鳴り始める位置」を基準に、同じ手の次の音が来たら音価を切って表示しているので、実際のペダル・伸ばしとは少し異なります。
+</footer>
+</div>
+
+<script src="vendor/vexflow.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
