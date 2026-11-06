@@ -26,8 +26,7 @@
 
 <details class="panel" id="map">
   <summary>コード進行の地図(8小節)</summary>
-  <p class="small" style="margin:8px 0 0">A major 基準の度数(Ⅳ△7→Ⅲ7→Ⅵm7→Ⅰ7 = いわゆる「丸サ進行」)。F#m 基準で見ると ♭Ⅵ△7 → Ⅴ7 → Ⅰm7 → ♭Ⅲ7。<br>
-    ※ intro.json から機械的に推定したコードです。G#m7 の細部や 4 小節目の C(ナチュラル)などは耳での確認をおすすめします。</p>
+  <p class="small" style="margin:8px 0 0">A major 基準の度数(Ⅳ△7→Ⅲ7→Ⅵm7→Ⅰ7 =「丸サ進行」)。※ intro.json から機械的に推定したコードです。</p>
   <div class="strip" id="strip"></div>
   <div class="legend" style="margin-top:12px">
     <span><span class="dot" style="background:var(--ct)"></span>コードトーン</span>
@@ -36,14 +35,12 @@
     <span><span class="dot" style="background:var(--lh)"></span>左手</span>
   </div>
   <p style="margin:12px 0 0"><button class="btn main" id="btn-all">▶ イントロ全体を再生</button>
-    <span class="small">(テンポは上のセレクタ。原曲は 120)</span></p>
+    </p>
 </details>
 <div id="steps"></div>
 <nav class="pager" id="pager"></nav>
 
-<footer>
-  データ元: intro.json(小節 2-9)。譜面は VexFlow(vendor/vexflow.js)で描画。五線譜は「各音が鳴り始める位置」を基準に、同じ手の次の音が来たら音価を切って表示しているので、実際のペダル・伸ばしとは少し異なります。
-</footer>
+<footer>データ元: intro.json(小節 2-9)。譜面は VexFlow で描画。音価は各音の開始位置から機械的に切っているので、実際の伸ばしとは少し異なります。</footer>
 </div>
 
 <script src="vendor/vexflow.js"></script>
