@@ -62,6 +62,10 @@ function App() {
               <a href="#/apps/chpath">chpath</a>
               <span className="app-description">文字を直線・円弧の描画コマンドに変換するツール</span>
             </li>
+            <li>
+              <a href="/apps/marusa/">丸サ イントロ 練習プラン</a>
+              <span className="app-description">丸の内サディスティックのイントロ練習プラン</span>
+            </li>
           </ul>
         </section>
         
