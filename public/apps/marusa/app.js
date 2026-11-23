@@ -659,19 +659,66 @@ function buildFragSong(f,d){
   memos.sort((a,b)=>a.timing.beat-b.timing.beat);   // 時間順(安定ソート)
   return {title:'丸サ '+f.title,bpm:PT_BPM,notes,memos};
 }
-/* 他のフレーズ(fid)の中身を、折りたたみで見せる(対比の説明用) */
+/* 他のフレーズ(fid)との対応表 + 中身(折りたたみ)。対比の説明用 */
 function phraseBar(f){ return Math.floor((f.a+f.b)/2/4)+2; }
-function makeRefBlock(fid){
-  const f=PHRASES.find(p=>p.fid===fid); if(!f) return document.createElement('span');
-  const t0=Math.round(f.a*96), t1=Math.round(f.b*96);
-  const rh=INTRO_NOTES.filter(n=>n.h==='R'&&n.on>=t0&&n.on<t1);
+function phraseRH(f){ const t0=Math.round(f.a*96), t1=Math.round(f.b*96); return INTRO_NOTES.filter(n=>n.h==='R'&&n.on>=t0&&n.on<t1); }
+/* 右手を「同時に鳴る音のかたまり(スロット)」の列にする */
+function slotsOf(f){
+  const by=new Map(); phraseRH(f).sort((x,y)=>x.on-y.on||x.p-y.p).forEach(n=>{ if(!by.has(n.on))by.set(n.on,[]); by.get(n.on).push(n); });
+  return [...by.values()].map(g=>({on:g[0].on,notes:g.map(n=>({p:n.p,pc:n.p%12}))}));
+}
+/* 音の並びを位置合わせ(Needleman-Wunsch)。同じ音=+3、一部共通=+1、別の音への置きかわり=-1、片方にだけある=-1.5 */
+function alignSlots(A,B){
+  const sc=(x,y)=>{ const sa=new Set(x.notes.map(n=>n.pc)), sb=new Set(y.notes.map(n=>n.pc)); const i=[...sa].filter(v=>sb.has(v)).length;
+    return i===sa.size&&i===sb.size?3:i>0?(sa.size>1&&sb.size>1?2.5:1):-1; };   // 和音どうしは優先してそろえる
+  const n=A.length,m=B.length, G=-1.5, D=Array.from({length:n+1},()=>Array(m+1).fill(0));
+  for(let i=1;i<=n;i++) D[i][0]=i*G; for(let j=1;j<=m;j++) D[0][j]=j*G;
+  for(let i=1;i<=n;i++) for(let j=1;j<=m;j++) D[i][j]=Math.max(D[i-1][j-1]+sc(A[i-1],B[j-1]),D[i-1][j]+G,D[i][j-1]+G);
+  const out=[]; let i=n,j=m;
+  while(i>0||j>0){
+    if(i>0&&j>0&&D[i][j]===D[i-1][j-1]+sc(A[i-1],B[j-1])){ out.push([A[i-1],B[j-1]]); i--; j--; }
+    else if(i>0&&D[i][j]===D[i-1][j]+G){ out.push([A[i-1],null]); i--; }
+    else { out.push([null,B[j-1]]); j--; }
+  }
+  return out.reverse();
+}
+function cmpChip(nt,on,other){
+  const same=other&&other.notes.some(o=>o.pc===nt.pc);
+  const r=roleTxt(nt.p,on);
+  return `<span class="chip ${other?(same?'same':'diff'):''}">${lab(midiName(nt.p))}${r?`<small>(${r})</small>`:''}</span>`;
+}
+function cmpCell(slot,other,asSet){
+  if(!slot) return '<td class="cell gap">—</td>';
+  const cls=!other?'only':(slot.notes.every(n=>other.notes.some(o=>o.pc===n.pc))&&(asSet||slot.notes.length===other.notes.length)?'same':'sub');
+  return `<td class="cell ${cls}">${slot.notes.slice().reverse().map(nt=>cmpChip(nt,slot.on,other)).join('<br>')}</td>`;
+}
+function makeCmpTable(f,rf,mode){
+  const A=slotsOf(f), B=slotsOf(rf), bf=phraseBar(f), br=phraseBar(rf);
+  const box=document.createElement('div'); box.className='cmp';
+  let body;
+  if(mode==='set'){
+    // 向きがちがうだけの対比: 並びをそろえず、使っている音(音名)が相手にもあるかだけを示す
+    const row=(S,O)=>S.map(x=>cmpCell(x,{notes:O.flatMap(o=>o.notes)},true)).join('');
+    body=`<tr><th>このフレーズ(小節${bf})</th>${row(A,B)}</tr><tr><th>比べる先(小節${br})</th>${row(B,A)}</tr>`;
+  }else{
+    const al=alignSlots(A,B);
+    body=`<tr><th>このフレーズ(小節${bf})</th>${al.map(([a,b])=>cmpCell(a,b)).join('')}</tr><tr><th>比べる先(小節${br})</th>${al.map(([a,b])=>cmpCell(b,a)).join('')}</tr>`;
+  }
+  box.innerHTML=`<div class="cmphd">対応表:小節${bf} と 小節${br}「${rf.title.split(':')[0]}」${mode==='set'?'<small>(並びは逆向き。使っている音が同じかだけを比べる)</small>':''}</div>
+    <div class="cmpscroll"><table class="cmpt">${body}</table></div>
+    <div class="cmplg"><span class="chip same">同じ音</span><span class="chip diff">ちがう音</span><span class="cell only">片方にだけある</span>${mode==='set'?'':'<small>縦=同時に鳴る音、横=時間順に位置をそろえています</small>'}</div>`;
+  return box;
+}
+function makeRefDetails(rf){
+  const f=rf, t0=Math.round(f.a*96), t1=Math.round(f.b*96);
+  const rh=phraseRH(f);
   const lh=INTRO_NOTES.filter(n=>n.h==='L'&&n.on<t1&&n.on+n.du>t0);
   const by=new Map(); rh.slice().sort((x,y)=>x.on-y.on||x.p-y.p).forEach(n=>{ if(!by.has(n.on))by.set(n.on,[]); by.get(n.on).push(n); });
   const one=n=>{ const r=roleTxt(n.p,n.on); return `<span style="color:${COL[roleOf(n.p,n.on)]}">${lab(midiName(n.p))}${r?`<small>(${r})</small>`:''}</span>`; };
   const seq=[...by.values()].map(g=>g.length>1?'<span class="chd">('+g.map(one).join(' ')+')</span>':one(g[0])).join(' → ');
   const d=document.createElement('details'); d.className='ref';
   const sid='ph'+String(f.fid).padStart(2,'0');
-  d.innerHTML=`<summary>比べる:小節${phraseBar(f)}のフレーズ「${f.title}」</summary>
+  d.innerHTML=`<summary>小節${phraseBar(f)}のフレーズの譜面・解説を見る</summary>
     <div class="refbody"><div class="staff"></div><div class="fseq">${seq}</div><div class="refpt">${f.pt}</div>
     <div class="refbtn"><button class="btn sm">▶ 聴く</button> <a href="#${sid}" class="reflink">このフレーズのステップへ</a></div></div>`;
   let drawn=false;
@@ -749,7 +796,7 @@ function makeFragCard(f,opt){
     const gap=(w1-w0)/96+2;
     playItems([...ctxItems,...soloItems().map(i=>({...i,at:i.at+gap}))],{base:.14});
   };
-  (f.refs||[]).forEach(id=>card.querySelector('.refs').appendChild(makeRefBlock(id)));
+  (f.refs||[]).forEach(r=>{ const rf=PHRASES.find(p=>p.fid===r.id); if(!rf) return; const w=card.querySelector('.refs'); w.appendChild(makeCmpTable(f,rf,r.mode)); w.appendChild(makeRefDetails(rf)); });
   return card;
 }
 /* コードごとの「使える音」説明(TL_DEF から自動生成) */
@@ -768,7 +815,7 @@ const PHRASES = [
   pt:'ソ#+シ(9+11)の和音のあと、ソ#から ラ・ド#・ミ(♭3・5・♭7)と上がり、ソ#(9th)・シ(11th)で止まる。F#m9 のアルペジオに、頭のソ#(9th)を足した形。最初の4音は32分音符。'},
  {a:5.75,b:8,title:'A13sus:13 → ♭7 → R(+経)→ R → ♭7 → 11 → 5',
   pt:'シ・レ・ファ#・ソ(9・11・13・♭7)の和音から、ファ#(13th)・ソ(♭7)・ラ(R)と上がり、ラの隣のラ#(灰色)をぶつけてから、ラ→ソへ戻る。最後のレ・ミ(11・5)が次の D△9 への橋渡し。3rd(ド#)は弾かない。'},
- {a:8,b:9.75,refs:[1],title:'半音下から入る:(7・9・3)→ 経 → 3 → 5 → 7 → 9',
+ {a:8,b:9.75,refs:[{id:1}],title:'半音下から入る:(7・9・3)→ 経 → 3 → 5 → 7 → 9',
   pt:'ド#・ミ・ファ#(7・9・3)の和音のあと、ファ(灰色)から ファ#・ラ・ド#・ミ(3・5・7・9)と上がる。小節2の「ファ#を半音下で飾る」の続きの形。ファ・ファ#・ラは三連符。'},
  {a:9.75,b:11,title:'G#m7:上3音の和音から降りる',
   pt:'シ・レ#・ファ#(♭3・5・♭7)の和音から、ミ(♭13)→ド#(11)→シ(♭3)と降りる。'},
@@ -778,11 +825,11 @@ const PHRASES = [
   pt:'ミ+ソ#(♭7+9th)の和音 → ラ → ラ+レ#(♭3+13th)の和音 → ミ → ド#。レ#(13th)は F#ドリアンの特徴音。'},
  {a:13.75,b:16,title:'A9sus4:和音 → 13 → 5 → (♭7+経)→ 9 → R → 13',
   pt:'ソ・シ・レ・ミ(♭7・9・11・5)の和音のあと、ファ#(13)→ミ(5)→ソ+ド(♭7+灰色)の和音→シ(9)→ラ(R)→ファ#(13)。3rdのド#は弾かない。'},
- {a:16,b:17.75,refs:[5],title:'テンションで始まりテンションで終わる:(9・3・5・7)→ 9 → 3 → 5 → 7 → 9',
+ {a:16,b:17.75,refs:[{id:5}],title:'テンションで始まりテンションで終わる:(9・3・5・7)→ 9 → 3 → 5 → 7 → 9',
   pt:'ミ・ファ#・ラ・ド#の和音のあと、ミ(9th)から 3rd・5th・7th と上がって、ミ(9th)で終わる。小節4の「半音下から入る」のファを、ミ(9th)に替えた形。'},
  {a:17.75,b:19.75,title:'C#7alt:ファ・ラ・シ を保って上の音だけ動かす',
   pt:'ファ・ラ・シ(3・♭13・♭7)は同じ指のまま、一番上だけレ(♭9)→ド#(R)に動く。そのあと ファ+ラ#(灰色)→シ→ラ。'},
- {a:19.75,b:22,refs:[3],title:'F#m9:和音 → 降りてくる (♭7+9) → 5 → 11 → ♭3 → 9 → 次のRへ',
+ {a:19.75,b:22,refs:[{id:3,mode:'set'}],title:'F#m9:和音 → 降りてくる (♭7+9) → 5 → 11 → ♭3 → 9 → 次のRへ',
   pt:'ラ・ド#・シ(♭3・5・11)の和音のあと、ミ+ソ#(♭7+9)から ド#・シ・ラ・ソ#と降りて、ソ#(9th)から最後のラへ。最後のラは、次の A13sus のルート(ベースの A と同時)。小節3の駆け上がりの逆向き。'},
  {a:22,b:23,title:'1拍の16分:13 → ♭7 → 9 → 11',
   pt:'ファ#(13)→ソ(♭7)→シ(9)→レ(11)。16分音符で切れ目なくつなぐ。3rdのド#は弾かず、テンションとミクソリディアンの音だけで作る。'},
@@ -790,8 +837,8 @@ const PHRASES = [
   pt:'ソ・シ・ファ#(♭7・9・13)の和音から、ミ・レ・ミ。次の小節の D△9 につなぐ。'},
  {a:24,b:25.75,title:'コードトーンだけ:7 → R → 3 → 5 → 7 →(R+3+9)',
   pt:'ぜんぶコードトーン。ド#(7th)から、ルート・3rd・5th・7th と1音ずつ上がり、最後に レ+ファ#+ミ(R+3+9)の和音を先取りで入れる。'},
- {a:25.75,b:27,refs:[6],title:'G#m7:上3音の和音 → ♭13 → ♭7 → 経',
-  pt:'小節4と同じ和音(シ・レ・ファ#=♭3・5・♭7)から、ミ(♭13)→ファ#(♭7)→ラ(灰色)と、今度は上へ向かう。'},
+ {a:25.75,b:27,refs:[{id:6}],title:'G#m7:上3音の和音 → ♭13 → ♭7 → 経',
+  pt:'小節4と似た形。頭の和音はシ・レ・ファ#で、小節4の シ・レ#・ファ# の レ#(5th)が半音下のレ(灰色)に替わっている。そこから ミ(♭13)→ファ#(♭7)→ラ(灰色)と、今度は上へ向かう。'},
  {a:27,b:28,title:'C#7:3rd+♭13 の和音 → #9 → ♭9 → 11',
   pt:'ファ(3rd)+ラ(♭13)の和音から、ミ(#9)・レ(♭9)と半音ずつ降りて、低いファ#(11th)へ。'},
  {a:28,b:30,title:'平行下降:A/F# → G#/F → G/E',
