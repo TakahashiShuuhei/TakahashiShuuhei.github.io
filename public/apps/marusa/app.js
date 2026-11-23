@@ -977,7 +977,7 @@ STEPS.splice(STEPS.findIndex(s=>s.id==='s7')+1,0,...SCALE_STEPS);
 const PAGES = [
   {file:'index.html',   title:'はじめに',          desc:'コード進行の地図と、全体の進め方。',ids:[]},
   {file:'p1-chords.html',title:'1. コード編',      desc:'ルート → 4和音 → 転回形 → アルペジオ → つなぎ方 → ガイドトーン → 左手 → テンション。',ids:['s1','s2','inv1','s3','s4','s5','s6','s7']},
-  {file:'p1b-scale.html',title:'2. スケール編',desc:'コードの種類から使えるスケールを選ぶ原則と、この曲のコードごとのスケール。',intro:'原則を表で確認してから、曲中の5種類のコードそれぞれのスケールを、理由・他の候補・実譜で使っているスケール外の音まで見る。',ids:['sx0','sx1','sx2','sx3','sx4','sx5']},
+  {file:'p1b-scale.html',title:'2. スケール編',desc:'コードの種類から使えるスケールを選ぶ原則と、この曲のコードごとのスケール。',ids:['sx0','sx1','sx2','sx3','sx4','sx5']},
   {file:'p2-phrase.html',title:'3. フレーズ編(小節2〜5)',desc:'イントロを1〜2拍〜1小節のフレーズに切って、1つずつ「コードトーン → スケール → 実譜」で練習する。',ids:['ph01','ph02','ph03','ph04','ph05','ph06','ph07','ph08','ph09']},
   {file:'p3-score.html', title:'4. フレーズ編(小節6〜9)',desc:'続きのフレーズ(小節6〜9)と、最後に2〜9小節を通す。',ids:['ph10','ph11','ph12','ph13','ph14','ph15','ph16','ph17','ph18','s10']},
   {file:'p4-improv.html',title:'5. アドリブ編',     desc:'実譜のフレーズの形を、ほかのコードに移して弾く。',ids:['tr1']}
