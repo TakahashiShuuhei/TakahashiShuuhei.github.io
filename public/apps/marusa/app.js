@@ -386,11 +386,21 @@ function srcFor(mode){
   });
   return [...L,...keep];
 }
-function barEvents(hand,bar,src){
+function barEvents(hand,bar,src,opt){
+  opt=opt||{};
   const t0=bar*384,t1=t0+384;
   const by=new Map();
   (src||INTRO_NOTES).forEach(n=>{ if(n.h===hand&&n.on>=t0&&n.on<t1){ if(!by.has(n.on))by.set(n.on,[]); by.get(n.on).push(n);} });
   const ons=[...by.keys()].sort((a,b)=>a-b); const evs=[]; let cur=0;
+  // 前の小節から続いている音(タイでつなぐ側)。opt.carry のときだけ
+  if(opt.carry){
+    const cn=(src||INTRO_NOTES).filter(n=>n.h===hand&&n.on<t0&&n.on+n.du>t0);
+    if(cn.length){
+      const end=Math.max(...cn.map(n=>n.on+n.du)), lim=Math.min(end-t0,ons.length?ons[0]-t0:384,384);
+      const d=lim===16?[16,'16',0]:pickDur(0,lim,false);
+      if(d){ evs.push({pos:0,dur:d[0],s:d[1],dot:d[2],notes:cn.map(n=>({...n,on:t0})),tick:t0,tieIn:cn.map(n=>n.p)}); cur=d[0]; }
+    }
+  }
   ons.forEach((on,i)=>{
     const pos=on-t0; if(pos>cur) pushRests(evs,cur,pos);
     const g=by.get(on); const maxd=Math.max(...g.map(n=>n.du));
@@ -398,7 +408,10 @@ function barEvents(hand,bar,src){
     const lim=Math.min(maxd,next-pos,384-pos);
     let d,trip=false;
     if(lim===16){d=[16,'16',0];trip=true;} else d=pickDur(pos,lim,false);
-    evs.push({pos,dur:d[0],s:d[1],dot:d[2],notes:g,trip,tick:on});
+    const ev={pos,dur:d[0],s:d[1],dot:d[2],notes:g,trip,tick:on};
+    // 最後の音が小節線をまたいで伸びているなら、またぐ音を記録(次の小節の先頭とタイでつなぐ)
+    if(opt.tieOut&&i===ons.length-1&&pos+d[0]===384){ const o=g.filter(n=>n.on+n.du>t1).map(n=>n.p); if(o.length) ev.tieOut=o; }
+    evs.push(ev);
     cur=pos+d[0];
   });
   if(cur<384) pushRests(evs,cur,384);
@@ -539,7 +552,7 @@ function renderFragStaff(el,rh,bar){
   // フレーズが小節をまたぐときは、各小節のイベントを小節線(barline)でつなぐ
   const b0=Math.floor(Math.min(...rh.map(n=>n.on))/384), b1=Math.floor(Math.max(...rh.map(n=>n.on))/384);
   const evs=[];
-  for(let b=b0;b<=b1;b++){ if(b>b0) evs.push({barline:true}); evs.push(...barEvents('R',b,rh)); }
+  for(let b=b0;b<=b1;b++){ if(b>b0) evs.push({barline:true}); evs.push(...barEvents('R',b,rh,{carry:b>b0,tieOut:b<b1})); }
   while(evs.length&&!evs[0].notes) evs.shift();
   while(evs.length&&!evs[evs.length-1].notes) evs.pop();
   drawEvStaff(el,evs,Math.min(...rh.map(n=>n.p)),Math.max(...rh.map(n=>n.p)),true);
@@ -560,6 +573,15 @@ function drawEvStaff(el,evs,lowP,hiP,labels){
   fm.format([X.v],st.getNoteEndX()-st.getNoteStartX()-22);
   X.v.draw(ctx,st);
   beams.forEach(b=>b.setContext(ctx).draw()); X.tups.forEach(t=>t.setContext(ctx).draw());
+  // 小節をまたぐ音をタイで結ぶ
+  evs.forEach((ev,i)=>{
+    if(!ev.tieOut) return;
+    const nx=evs.slice(i+1).find(e=>e.notes); if(!nx||!nx.tieIn) return;
+    const pa=[...new Set(ev.notes.map(n=>n.p))].sort((a,b)=>a-b), pb=[...new Set(nx.notes.map(n=>n.p))].sort((a,b)=>a-b);
+    const ps=ev.tieOut.filter(p=>pb.includes(p));
+    if(!ps.length) return;
+    new VF.StaveTie({first_note:ev.sn,last_note:nx.sn,first_indices:ps.map(p=>pa.indexOf(p)),last_indices:ps.map(p=>pb.indexOf(p))}).setContext(ctx).draw();
+  });
   // コード名ラベル(最初の音の上 + 途中でコードが変わる位置)
   const first=evs.find(e=>e.notes); if(!first||!labels) return;
   ctx.setFont('sans-serif',12,'bold'); ctx.setFillStyle('#111');
