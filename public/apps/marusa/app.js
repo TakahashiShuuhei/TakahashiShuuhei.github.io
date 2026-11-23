@@ -633,7 +633,8 @@ function buildFragSong(f,d){
   memos.sort((a,b)=>a.timing.beat-b.timing.beat);   // 時間順(安定ソート)
   return {title:'丸サ '+f.title,bpm:PT_BPM,notes,memos};
 }
-function makeFragCard(f,idx){
+function makeFragCard(f,opt){
+  opt=opt||{};
   const t0=Math.round(f.a*96), t1=Math.round(f.b*96), bar=Math.floor(t0/384);
   const rh=INTRO_NOTES.filter(n=>n.h==='R'&&n.on>=t0&&n.on<t1);
   const lh=INTRO_NOTES.filter(n=>n.h==='L'&&n.on<t1&&n.on+n.du>t0).sort((a,b)=>a.on-b.on);
@@ -663,7 +664,7 @@ function makeFragCard(f,idx){
   }
   const stageHtml=stages.map((g,i)=>`<div class="stg"><div class="stl"><span class="fno">${g.no}</span><b>${g.name}</b><small>${g.sub}</small><button class="btn sm" data-i="${i}">▶</button></div><div class="staff st${i}"></div><div class="fseq">${g.html}</div></div>`).join('');
   const card=document.createElement('div'); card.className='card frag';
-  card.innerHTML=`<div class="h"><span class="fno">${idx}</span><b>${f.title}</b><span class="plays"><button class="btn main-play" title="前後の和音つき(練習する音だけ大きく)→ 休符 → 練習する部分だけ">▶ 前後つき→単独</button><button class="btn solo-play">▶ 単独だけ</button></span></div>
+  card.innerHTML=`<div class="h">${opt.step?'':`<b>${f.title}</b>`}<span class="plays"><button class="btn main-play" title="前後の和音つき(練習する音だけ大きく)→ 休符 → 練習する部分だけ">▶ 前後つき→単独</button><button class="btn solo-play">▶ 単独だけ</button></span></div>
     <div class="fsub">小節${bar+1}(拍${f.a}〜${f.b})・${segs.map(x=>x.e.sym+' '+x.e.deg).join(' → ')}</div>
     ${stageHtml}
     ${stages.length?'<div class="stl" style="margin-top:8px"><span class="fno">③</span><b>フレーズ(実譜)</b><small>①の音を、②の中から選んで並べるとこうなる</small></div>':''}
@@ -701,55 +702,48 @@ function chordInfoHtml(key){
   const d=TL_DEF[key]; const nm=(arr)=>arr.map(n=>`${lab(n)}(${d.roles[n]||''})`).join('・');
   return `<b>${d.sym}</b>(${d.deg}): コードトーン ${nm(d.tones)} / テンション ${nm(d.tens)} / スケール ${d.scale.name}`;
 }
-const FRAG_GROUPS = [
- {title:'Ⅳ(D△7・D△9)の上のフレーズ',keys:['D△9'],list:[
-  {a:24,b:25.25,title:'コードトーンだけ:7 → R → 3 → 5 → 7',
-   pt:'ぜんぶコードトーン。ド#(7th)から、ルート・3rd・5th・7th と1音ずつ上がる。(小節7)'},
-  {a:16.5,b:17.75,title:'テンションで始まりテンションで終わる:9 → 3 → 5 → 7 → 9',
-   pt:'小節7と同じ「3rd・5th・7th」の上りに、9th(オレンジ)を頭とおしりにつけた形。(小節5)'},
-  {a:8.5,b:9.5,title:'半音下から入る:経 → 3 → 5 → 7 → 9',
-   pt:'小節5の頭の ミ(9th)を、ファ(3rdの半音下・灰色)に替えた形。ファ・ファ#・ラは三連符。ファはスケール外だが、すぐ半音上のファ#に解決する。(小節3)'},
-  {a:0.5,b:1.75,title:'3rd を半音下で飾る:3 → 経 → 3 → 5 → 9',
-   pt:'ファ#(3rd)を半音下のファ(灰色)でかすめてから、ラ(5th)、ミ(9th)へ。(小節1)'}
- ]},
- {title:'Ⅵm(F#m7・F#m9)の上のフレーズ',keys:['F#m9'],list:[
-  {a:4.5,b:5.5,title:'駆け上がり:9 → ♭3 → 5 → ♭7 → 9 → 11',
-   pt:'ソ#(9th)から ♭3・5・♭7 と上がり、9th・11th で止まる。小節5の「9→3→5→7→9」に11thを足した形。最初の4音は32分音符。(小節2)'},
-  {a:20.5,b:21.75,title:'降りてくる:(♭7+9) → 5 → 11 → ♭3 → 9',
-   pt:'小節2の逆向きに降りる。ミ+ソ#で入って、ド#・シ・ラ・ソ#(9th)に着地。(小節6)'},
-  {a:12,b:13.75,title:'F#m7:和音と単音のかけ合い',
-   pt:'ミ+ソ#(♭7+9th)の和音 → ラ → ラ+レ#(♭3+13th)の和音 → ミ → ド#。レ#(13th)は F#ドリアンの特徴音。(小節4)'}
- ]},
- {title:'ドミナント(G#m7・C#7)の上のフレーズ',keys:['G#m7','C#7'],list:[
-  {a:9.75,b:11,title:'G#m7:上3音の和音から降りる',
-   pt:'シ・レ#・ファ#(♭3・5・♭7)の和音から、ミ(♭13)→ド#(11)→シ(♭3)と降りる。(小節3)'},
-  {a:11,b:12,title:'C#7:ド+ミの和音 → ♭7 → ♭13 → 11',
-   pt:'ド(灰色)+ミ(#9)の和音のあと、シ(♭7)・ラ(♭13)・ファ#(11th)と降りる。ドだけスケール外。(小節3)'},
-  {a:27,b:28,title:'C#7:3rd+♭13 の和音 → #9 → ♭9 → 11',
-   pt:'ファ(3rd)+ラ(♭13)の和音から、ミ(#9)・レ(♭9)と半音ずつ降りて、低いファ#(11th)へ。(小節7)'},
-  {a:2.25,b:3.75,title:'C#7alt:R → ♭7 → 経 → ♭7 → ♭13',
-   pt:'ド#(R)→シ(♭7)。シをド(灰色)で上から飾って(シ→ド→シ)、ラ(♭13)へ。(小節1)'},
-  {a:17.75,b:19.75,title:'C#7alt:ファ・ラ・シ を保って上の音だけ動かす',
-   pt:'ファ・ラ・シ(3・♭13・♭7)は同じ指のまま、一番上だけレ(♭9)→ド#(R)に動く。そのあと ファ+ラ#(灰色)→シ→ラ。(小節5)'}
- ]},
- {title:'Ⅰ7(A13sus・A9sus4)の上のフレーズ',keys:['A13sus'],list:[
-  {a:21.75,b:23,title:'テンションだけで作る:R → 13 → 9 → 11',
-   pt:'ラ(R)→ファ#(13)→シ(9)→レ(11)。3rdのド#は弾かず、テンションだけで浮いた響き。(小節6)'},
-  {a:23,b:24,title:'(9+13)の和音 → 5 → 11 → 5',
-   pt:'シ+ファ#(9+13)の和音から、ミ・レ・ミ。次の小節の D△9 につなぐ。(小節6)'},
-  {a:6.25,b:7.5,title:'ミクソリディアンの音:13 → ♭7 → R(+経)→ R → ♭7',
-   pt:'ファ#(13th)・ソ(♭7)・ラ(R)と上がり、ラの隣のラ#(灰色)をぶつけてから、ラ→ソへ戻る。(小節2)'},
-  {a:14.5,b:16,title:'A9sus4:13 → 5 → (♭7+経)→ 9 → R → 13',
-   pt:'ファ#(13)→ミ(5)→ソ+ド(♭7+灰色)の和音→シ(9)→ラ(R)→ファ#(13)。3rdのド#は弾かない。ドだけスケール外。(小節4)'}
- ]},
- {title:'小節8:コード全体が半音ずつ下がる',keys:[],desc:'スケールもコードトーンの番号も関係なく、<b>同じ形の和音を半音ずつ平行移動</b>しているだけ。',list:[
-  {a:28,b:30,title:'平行下降:A/F# → G#/F → G/E',
-   pt:'ミ・ラ・ド#→レ#・ソ#・ド→レ・ソ・シ。右手の形を保ったまま半音ずつ下げる(左手も F#→F→E)。(小節8)'}
- ]}
+/* イントロ全体(右手)を、コードの区間ごとに 1拍〜1小節ほどのフレーズに切ったもの(曲の進行順)。
+   a,b=拍(0始まり)。title=フレーズの形、pt=成り立ちの解説。 */
+const PHRASES = [
+ {a:0,b:1.75,title:'3rd を半音下で飾る:(3・5・7)→ 3 → 経 → 3 → 5 → 9',
+  pt:'頭に D△7 の和音(ファ#・ラ・ド#=3・5・7)。そのあと 3rd のファ#を、半音下のファ(灰色)でかすめて、ラ(5th)→ミ(9th)と上がる。'},
+ {a:1.75,b:3.75,title:'C#7alt:和音 → R → ♭7 → 経 → ♭7 → ♭13',
+  pt:'ファ・ラ・シ・レ(3・♭13・♭7・♭9)の和音を先取りで入れてから、ド#(R)→シ(♭7)。シをド(灰色)で上から飾って(シ→ド→シ)、ラ(♭13)へ。'},
+ {a:3.75,b:5.75,title:'F#m9:9+11 の和音 → 駆け上がり 9 → ♭3 → 5 → ♭7 → 9 → 11',
+  pt:'ソ#+シ(9+11)の和音のあと、ソ#から ラ・ド#・ミ(♭3・5・♭7)と上がり、ソ#(9th)・シ(11th)で止まる。F#m9 のアルペジオに、頭のソ#(9th)を足した形。最初の4音は32分音符。'},
+ {a:5.75,b:8,title:'A13sus:13 → ♭7 → R(+経)→ R → ♭7 → 11 → 5',
+  pt:'シ・レ・ファ#・ソ(9・11・13・♭7)の和音から、ファ#(13th)・ソ(♭7)・ラ(R)と上がり、ラの隣のラ#(灰色)をぶつけてから、ラ→ソへ戻る。最後のレ・ミ(11・5)が次の D△9 への橋渡し。3rd(ド#)は弾かない。'},
+ {a:8,b:9.75,title:'半音下から入る:(7・9・3)→ 経 → 3 → 5 → 7 → 9',
+  pt:'ド#・ミ・ファ#(7・9・3)の和音のあと、ファ(灰色)から ファ#・ラ・ド#・ミ(3・5・7・9)と上がる。小節1の「ファ#を半音下で飾る」の続きの形。ファ・ファ#・ラは三連符。'},
+ {a:9.75,b:11,title:'G#m7:上3音の和音から降りる',
+  pt:'シ・レ#・ファ#(♭3・5・♭7)の和音から、ミ(♭13)→ド#(11)→シ(♭3)と降りる。'},
+ {a:11,b:12,title:'C#7:和音 → ♭7 → ♭13 → 11',
+  pt:'ド(灰色)+ミ(#9)の和音のあと、シ(♭7)・ラ(♭13)・ファ#(11th)と降りる。ドだけスケール外。'},
+ {a:12,b:13.75,title:'F#m7:和音と単音のかけ合い',
+  pt:'ミ+ソ#(♭7+9th)の和音 → ラ → ラ+レ#(♭3+13th)の和音 → ミ → ド#。レ#(13th)は F#ドリアンの特徴音。'},
+ {a:13.75,b:16,title:'A9sus4:和音 → 13 → 5 → (♭7+経)→ 9 → R → 13',
+  pt:'ソ・シ・レ・ミ(♭7・9・11・5)の和音のあと、ファ#(13)→ミ(5)→ソ+ド(♭7+灰色)の和音→シ(9)→ラ(R)→ファ#(13)。3rdのド#は弾かない。'},
+ {a:16,b:17.75,title:'テンションで始まりテンションで終わる:(9・3・5・7)→ 9 → 3 → 5 → 7 → 9',
+  pt:'ミ・ファ#・ラ・ド#の和音のあと、ミ(9th)から 3rd・5th・7th と上がって、ミ(9th)で終わる。小節3の「半音下から入る」のファを、ミ(9th)に替えた形。'},
+ {a:17.75,b:19.75,title:'C#7alt:ファ・ラ・シ を保って上の音だけ動かす',
+  pt:'ファ・ラ・シ(3・♭13・♭7)は同じ指のまま、一番上だけレ(♭9)→ド#(R)に動く。そのあと ファ+ラ#(灰色)→シ→ラ。'},
+ {a:19.75,b:21.75,title:'F#m9:和音 → 降りてくる (♭7+9) → 5 → 11 → ♭3 → 9',
+  pt:'ラ・ド#・シ(♭3・5・11)の和音のあと、ミ+ソ#(♭7+9)から ド#・シ・ラ・ソ#と降りて、ソ#(9th)に着地。小節2の駆け上がりの逆向き。'},
+ {a:21.75,b:23,title:'テンションだけで作る:R → 13 → 9 → 11',
+  pt:'ラ(R)→ファ#(13)→シ(9)→レ(11)。3rdのド#は弾かず、テンションだけで浮いた響き。'},
+ {a:23,b:24,title:'A13sus:(9+13)の和音 → 5 → 11 → 5',
+  pt:'シ+ファ#(9+13)の和音から、ミ・レ・ミ。次の小節の D△9 につなぐ。'},
+ {a:24,b:25.75,title:'コードトーンだけ:7 → R → 3 → 5 → 7 →(R+3+9)',
+  pt:'ぜんぶコードトーン。ド#(7th)から、ルート・3rd・5th・7th と1音ずつ上がり、最後に レ+ファ#+ミ(R+3+9)の和音を先取りで入れる。'},
+ {a:25.75,b:27,title:'G#m7:上3音の和音 → ♭13 → ♭7 → 経',
+  pt:'小節3と同じ和音(シ・レ・ファ#=♭3・5・♭7)から、ミ(♭13)→ファ#(♭7)→ラ(灰色)と、今度は上へ向かう。'},
+ {a:27,b:28,title:'C#7:3rd+♭13 の和音 → #9 → ♭9 → 11',
+  pt:'ファ(3rd)+ラ(♭13)の和音から、ミ(#9)・レ(♭9)と半音ずつ降りて、低いファ#(11th)へ。'},
+ {a:28,b:30,title:'平行下降:A/F# → G#/F → G/E',
+  pt:'スケールもコードトーンの番号も関係なく、<b>同じ形の和音を半音ずつ平行移動</b>しているだけ。ミ・ラ・ド#→レ#・ソ#・ド→レ・ソ・シ。左手も F#→F→E。'}
 ];
+PHRASES.forEach((f,k)=>{ f.fid=k+1; });   // JSON のファイル名用の通し番号
 
-{ let k=0; FRAG_GROUPS.forEach(g=>g.list.forEach(f=>{ f.fid=++k; })); }
-FRAG_GROUPS.forEach(g=>g.list.sort((x,y)=>x.a-y.a));   // 表示は曲の進行順(小節の若い順)。fid はファイル名用に固定   // 断片の通し番号(JSON のファイル名用)
 /* ============ 練習ステップ定義 ============ */
 const STEPS = [
  {id:'s1',title:'左手でルートだけ',goal:'「今のコード」を左手の1音で言えるようにする',
@@ -785,34 +779,6 @@ const STEPS = [
   do:['ステップ2のブロックコードに、オレンジの音(テンション)を足して弾き比べる。D△7→D△9、F#m7→F#m9、A7→A7sus4(9,13)、C#7→C#7(♭9,♭13)。','次に、右手だけで <b>F#m7 → Bm7♭5 → A△7 → G△7</b> と弾く。左手のルート(D → C# → F# → A)の上で、それぞれ D△9 → C#7(♭9,♭13) → F#m9 → A7sus4(9,13) になる。'],
   think:['<b>右手は「ルートの上に重ねた別のコード」</b>と見ると覚えやすい:D=F#m7、C#=Bm7♭5、F#=A△7、A=G△7、G#=B。どれも 3rd か ♭7th から3度ずつ積んだ形で、9・11・13 が自然に入る。','テンション=9th(ルートの2音上)・11th(4音上)・13th(6音上)。','C#7(♭9,♭13) は、ドミナントが F#m に解決する前の「ひねり」。','A7sus4(9,13) は 3rd(ド#)を弾かないので宙に浮く。'],
   cards:{kind:'tension',list:['D7','C7','F7','A7','G7']}},
- {id:'sc1',title:'コードに合うスケールを弾く',goal:'フレーズの音が、どのスケールの音かを指に覚えさせる',
-  do:['右手でスケールを8分音符で上行→下行(♩=60→80)。左手はルートの全音符。青い音を少し強く。','D → C# → F# → A を1コード=1小節でつなぐ(上行だけでOK)。'],
-  think:['イントロの右手は、ほぼこの5つのスケールの音(灰色の経過音だけ例外)。','隣のコードとの違いは1〜2音:C#7 は「ミ→ファ(E#)」、F#m7 は「レ#」、A7 は「ソ#→ソ」。'],
-  cards:{kind:'scale',list:SCALE_CARDS}},
- {id:'fr1',title:'実譜を短いフレーズに切って、音の役割を確かめる',goal:'コードトーン・テンション・スケールの関係を見ながら弾く',
-  do:['カードごとに <b>①コードトーン → ②スケール → ③フレーズ</b> の順に右手で(♩=60)。①②はそのフレーズの音域だけ。左手はルートの全音符でOK。','「▶ 前後つき→単独」で前後の和音の中での位置を聴いてから単独で。「🎹 練習」で piano-trainer に読み込める。','鍵盤の白丸=実際に弾く音。薄い青(スケール)の上を飛び飛びに拾っているのを見る。灰色は「経過音」と声に出す。'],
-  think:['フレーズ=スケールの中から、コードトーンを中心に飛び飛びで拾ったもの。','灰色(スケール外)は、コードトーンの半音上か下から入って、すぐ解決する。','ドミナント(G#m7・C#7)は ♭9・#9・♭13 などひねったテンションが多い。','A13sus・A9sus4 は 3rd(ド#)を弾かない。'],
-  note:'実譜のリズムのままです。まず音の並びと役割だけ覚えて、速さは後から。',
-  fgroups:FRAG_GROUPS},
- {id:'sk1',title:'コードの刻みだけ(右手=先取りの和音)',goal:'和音が入るタイミングだけを練習する',
-  do:['右手は和音だけを、実際のリズムで。左手は譜面どおり。▶で聴いて手を叩いてから両手で。'],
-  think:['和音は先取りで「拍の16分前」(1 e & a の a)に入る。小節1の最後の和音は、3拍目のベース C# の直前。'],
-  note:'メロディ(単音)は省いています。',
-  bars:[0,3],src:'stab'},
- {id:'sk2',title:'メロディの骨格だけ(経過音を抜く)',goal:'コードトーンとテンションだけの骨組みを弾く',
-  do:['青(コードトーン)とオレンジ(テンション)の単音だけを残した譜面を弾く(経過音・32分音符は省略)。左手→右手→両手。','弾けたら次の実譜と見比べて「何が足されているか」を探す。'],
-  think:['フレーズがどのコードトーンに向かうかが見える(小節2は F#m9 のアルペジオが上がるだけ)。','足されているのは主に半音の経過音と装飾。'],
-  note:'和音も省いています(前のステップで練習済み)。',
-  bars:[0,3],src:'melody'},
- {id:'s8',title:'先取りのリズム(実譜 1〜2小節)',goal:'右手のコードが16分音符ぶん早く入るのを体感する',
-  do:['実譜の1〜2小節を、左手→右手→両手で。'],
-  think:['C#7 の和音は、ベース C#(3拍目)の16分前=2拍目の最後。F#m9 は4拍目の最後、A13sus は6拍目の最後。','左手は拍の頭、右手のコードが前のめり。これがグルーヴの正体。','半音で下から入る音(0.75拍目のファ)は経過音。'],
-  bars:[0,1],kb:true},
- {id:'s9',title:'フレーズをコードトーンで読む(実譜 3〜4小節)',goal:'「今どのコードのどの音か」を言いながら弾く',
-  do:['1小節ずつ、色を見て「コードトーン?テンション?経過音?」と声に出して弾く。▶を聴いて真似してから譜面と照らす。'],
-  think:['小節3:ファ→ファ#→ラ→ド#→ミ は D△9 のアルペジオ(ファは経過音)。','小節3後半:G#m7 の上で ミ・ド#・シ と下りて C#7 へ。C(ナチュラル)は経過音。','小節4:F#m7 の音に D#(13th)を挟んで、A9sus4 へ。'],
-  table:true,
-  bars:[2,3],kb:true},
  {id:'s10',title:'全体を組み立てる(1〜8小節)',goal:'コード名・度数・役割を意識して通して弾く',
   do:['左手だけ→右手だけ(2小節ごと)→両手。最後は「今のコード名」を心の中で言いながら(♩=60から)。'],
   think:['A ブロック(1-2, 5-6)=丸サ進行そのもの。B ブロック(3-4, 7-8)=間に G#m7 を挟んだ変形。5〜7小節は1〜3小節の繰り返し+メロが1オクターブ上。','8小節目は A/F#→G#/F→G/E と、コード全体が半音ずつ下がる平行移動(ベースも F#→F→E)。'],
@@ -824,12 +790,22 @@ const STEPS = [
   groups:[...PH_REAL,...PH_EXT].map(phGroup)}
 ];
 
+/* フレーズごとに1ステップ(小節の若い順)。s10(全体)の直前に差し込む */
+{
+  const phSteps=PHRASES.map(f=>{
+    const t0=Math.round(f.a*96), t1=Math.round(f.b*96);
+    const chs=TL.filter((e,i)=>e.start<t1&&(i+1<TL.length?TL[i+1].start:1e9)>t0).map(e=>e.sym).join(' → ');
+    return {id:'ph'+String(f.fid).padStart(2,'0'),title:`小節${Math.floor((t0+t1)/2/384)+1}・${chs}`,goal:f.title,phrase:f};
+  });
+  STEPS.splice(STEPS.findIndex(s=>s.id==='s10'),0,...phSteps);
+}
+
 /* ============ ページ構成 ============ */
 const PAGES = [
   {file:'index.html',   title:'はじめに',          desc:'コード進行の地図と、全体の進め方。',ids:[]},
   {file:'p1-chords.html',title:'1. コード編',      desc:'ルート → 4和音 → 転回形 → アルペジオ → つなぎ方 → ガイドトーン → 左手 → テンション。',ids:['s1','s2','inv1','s3','s4','s5','s6','s7']},
-  {file:'p2-phrase.html',title:'2. スケール・フレーズ編',desc:'コードに合うスケールを弾き、実譜を短いフレーズに切って「コードトーン → スケール → フレーズ」で理解する。',ids:['sc1','fr1']},
-  {file:'p3-score.html', title:'3. 実譜編',         desc:'和音の刻み・メロの骨格 → 先取り → フレーズ読み → 1〜8小節を通す。',ids:['sk1','sk2','s8','s9','s10']},
+  {file:'p2-phrase.html',title:'2. フレーズ編(小節1〜4)',desc:'イントロを1〜2拍〜1小節のフレーズに切って、1つずつ「コードトーン → スケール → 実譜」で練習する。',intro:'各フレーズを <b>①コードトーン → ②スケール → ③フレーズ(実譜)</b> の順に右手で(♩=60)。①②はそのフレーズの音域だけ。「▶ 前後つき→単独」で前後の和音の中での位置を聴いてから弾く。「🎹 練習」で piano-trainer に読み込める。',ids:['ph01','ph02','ph03','ph04','ph05','ph06','ph07','ph08','ph09']},
+  {file:'p3-score.html', title:'3. フレーズ編(小節5〜8)',desc:'続きのフレーズ(小節5〜8)と、最後に1〜8小節を通す。',intro:'前ページの続き。小節5〜7は小節1〜3の変形なので、「前に弾いたフレーズとどこが違うか」を見る。',ids:['ph10','ph11','ph12','ph13','ph14','ph15','ph16','ph17','ph18','s10']},
   {file:'p4-improv.html',title:'4. アドリブ編',     desc:'実譜のフレーズの形を、ほかのコードに移して弾く。',ids:['tr1']}
 ];
 const PAGE = PAGES.find(p=>p.file===(document.body.dataset.page||'index.html'))||PAGES[0];
@@ -866,15 +842,18 @@ function renderStrip(){
 }
 function renderSteps(){
   const prog=loadProg(); const host=document.getElementById('steps'); if(!host){updateProg();return;} host.innerHTML='';
+  if(PAGE.intro){ const c=document.createElement('div'); c.className='callout'; c.style.marginBottom='12px'; c.innerHTML=PAGE.intro; host.appendChild(c); }
+  if(PAGE.ids.some(id=>/^ph/.test(id))) host.appendChild(kbLegend());
   STEPS.forEach((s,i)=>{
     if(!PAGE.ids.includes(s.id)) return;
     const sec=document.createElement('section'); sec.className='step'+(prog[s.id]?' done':'')+(prog['_c_'+s.id]?' closed':''); sec.id=s.id;
-    sec.innerHTML=`<header><div class="num">${i+1}</div><div><h2>${s.title}</h2><div class="goal">${s.goal}</div></div>
-      <label class="chk" onclick="event.stopPropagation()"><input type="checkbox" ${prog[s.id]?'checked':''}> できた</label></header>
-      <div class="body"><div class="cols">
+    const cols=s.do?`<div class="cols">
         <div><h3><span class="tag">弾く</span></h3><ul>${s.do.map(x=>`<li>${x}</li>`).join('')}</ul></div>
         <div><h3><span class="tag th">考える</span></h3><ul>${s.think.map(x=>`<li>${x}</li>`).join('')}</ul></div>
-      </div><div class="vis"></div></div>`;
+      </div>`:'';
+    sec.innerHTML=`<header><div class="num">${i+1}</div><div><h2>${s.title}</h2><div class="goal">${s.goal}</div></div>
+      <label class="chk" onclick="event.stopPropagation()"><input type="checkbox" ${prog[s.id]?'checked':''}> できた</label></header>
+      <div class="body">${cols}<div class="vis"></div></div>`;
     const vis=sec.querySelector('.vis');
     if(s.note){ const c=document.createElement('div'); c.className='callout'; c.innerHTML=s.note; vis.appendChild(c); }
     if(s.cards){ const g=document.createElement('div'); g.className='cards'; s.cards.list.forEach(k=>g.appendChild(makeCard(typeof k==='string'?CH[k]:k,s.cards.kind))); vis.appendChild(g); }
@@ -889,17 +868,7 @@ function renderSteps(){
       }
       const cg=document.createElement('div'); cg.className='cards'; g.list.forEach(o=>cg.appendChild(makeCard(o,g.kind||'phrase'))); dt.appendChild(cg); vis.appendChild(dt);
     }); }
-    if(s.fgroups){
-      vis.appendChild(kbLegend());
-      s.fgroups.forEach(g=>{
-        const dt=document.createElement('details'); dt.className='grp'; dt.open=true;
-        const info=g.keys.map(chordInfoHtml).join('<br>');
-        dt.innerHTML=`<summary>${g.title}</summary><p class="gdesc">${g.desc||info}</p>`;
-        const fg=document.createElement('div'); fg.className='frags';
-        g.list.forEach((f,k)=>fg.appendChild(makeFragCard(f,k+1)));
-        dt.appendChild(fg); vis.appendChild(dt);
-      });
-    }
+    if(s.phrase){ vis.appendChild(makeFragCard(s.phrase,{step:true})); }
     if(s.bars){ vis.appendChild(makeBarsView(s.bars[0],s.bars[1],{kb:s.kb,src:s.src?srcFor(s.src):null,srcKey:s.src||'',srcLabel:s.src==='stab'?'和音の刻みだけ':s.src==='melody'?'メロの骨格だけ':''})); }
     if(s.table){
       const t=document.createElement('div'); t.style.marginTop='14px';
