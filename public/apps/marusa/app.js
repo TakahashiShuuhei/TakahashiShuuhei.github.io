@@ -934,14 +934,14 @@ const STEPS = [
 /* ============ スケール編 ============ */
 /* ---- スケール定義(ルートからの半音数)。表はここから計算する ---- */
 const SCALE_DEFS=[
- {n:'イオニアン',k:'イ',semi:[0,2,4,5,7,9,11],hl:[],pt:'メジャースケールそのもの'},
- {n:'ドリアン',k:'ド',semi:[0,2,3,5,7,9,10],hl:[5],pt:'m3 のマイナー。M6 が特徴'},
- {n:'フリジアン',k:'フ',semi:[0,1,3,5,7,8,10],hl:[1],pt:'m3 のマイナー。m2 が特徴'},
- {n:'リディアン',k:'リ',semi:[0,2,4,6,7,9,11],hl:[3],pt:'M3 のメジャー。#4 が特徴'},
- {n:'ミクソリディアン',k:'ミ',semi:[0,2,4,5,7,9,10],hl:[6],pt:'M3 のドミナント。m7 が特徴'},
- {n:'エオリアン',k:'エ',semi:[0,2,3,5,7,8,10],hl:[5],pt:'ナチュラルマイナー。m6 が特徴'},
- {n:'ロクリアン',k:'ロ',semi:[0,1,3,5,6,8,10],hl:[1,4],pt:'m3 で 5th が ♭5。m2・♭5'},
- {n:'ミクソ♭9♭13',k:'',semi:[0,1,4,5,7,8,10],hl:[1,5],pt:'M3 のドミナントに m2・m6 をつけた形(短調へ解決するドミナント用)',extra:true}
+ {n:'イオニアン',semi:[0,2,4,5,7,9,11],hl:[],pt:'メジャースケールそのもの'},
+ {n:'ドリアン',semi:[0,2,3,5,7,9,10],hl:[5],pt:'m3 のマイナー。M6 が特徴'},
+ {n:'フリジアン',semi:[0,1,3,5,7,8,10],hl:[1],pt:'m3 のマイナー。m2 が特徴'},
+ {n:'リディアン',semi:[0,2,4,6,7,9,11],hl:[3],pt:'M3 のメジャー。#4 が特徴'},
+ {n:'ミクソリディアン',semi:[0,2,4,5,7,9,10],hl:[6],pt:'M3 のドミナント。m7 が特徴'},
+ {n:'エオリアン',semi:[0,2,3,5,7,8,10],hl:[5],pt:'ナチュラルマイナー。m6 が特徴'},
+ {n:'ロクリアン',semi:[0,1,3,5,6,8,10],hl:[1,4],pt:'m3 で 5th が ♭5。m2・♭5'},
+ {n:'ミクソ♭9♭13',semi:[0,1,4,5,7,8,10],hl:[1,5],pt:'M3 のドミナントに m2・m6 をつけた形(短調へ解決するドミナント用)',extra:true}
 ];
 const IVN=(deg,semi)=>deg===0?'R':({1:{1:'m2',2:'M2'},2:{3:'m3',4:'M3'},3:{5:'P4',6:'#4'},4:{6:'♭5',7:'P5'},5:{8:'m6',9:'M6'},6:{10:'m7',11:'M7'}})[deg][semi];
 const SEMI_NAME={0:'R',1:'m2',2:'M2',3:'m3',4:'M3',5:'P4',6:'♭5',7:'P5',8:'m6',9:'M6',10:'m7',11:'M7'};
@@ -954,7 +954,7 @@ const CHORD_TYPES=[
 ];
 const ivTxt=a=>a.map(x=>SEMI_NAME[x]).join('・');
 const cands=req=>SCALE_DEFS.filter(sc=>req.every(r=>sc.semi.includes(r)));
-const scName=sc=>sc.k?`${sc.k}:${sc.n}`:sc.n;
+const scName=sc=>sc.n;
 function scaleChartHtml(){
   const head=['R','9th','3rd','11th','5th','13th','7th'], ct=[0,2,4,6];
   const rows=SCALE_DEFS.map(sc=>`<tr class="${sc.extra?'ref':''}"><th>${scName(sc)}</th>${sc.semi.map((x,i)=>`<td class="${ct.includes(i)?'ctc':''}${sc.hl.includes(i)?' key':''}">${IVN(i,x)}</td>`).join('')}<td class="pt">${sc.pt}</td></tr>`).join('');
@@ -976,7 +976,7 @@ const SONG_CHORDS=[
 ];
 function narrowHtml(){
   const rows=SONG_CHORDS.map(x=>{ const ty=CHORD_TYPES.find(t=>t.name===x.t), c0=cands(ty.req), c1=c0.filter(sc=>x.extra.every(e=>sc.semi.includes(e))), gone=c0.filter(sc=>!c1.includes(sc));
-    return `<tr><td><b>${x.c}</b></td><td>${x.t}:${ivTxt(ty.req)}</td><td>${c0.map(sc=>sc.k||sc.n).join('・')}</td><td>${x.ex}${gone.length?`<br><small>→ ${gone.map(sc=>sc.k||sc.n).join('・')} は ${x.extra.map(e=>SEMI_NAME[e]).join('・')} を含まないので消える</small>`:''}</td><td><b>${c1.map(scName).join('、')}</b></td></tr>`; }).join('');
+    return `<tr><td><b>${x.c}</b></td><td>${x.t}:${ivTxt(ty.req)}</td><td>${c0.map(sc=>sc.n).join('・')}</td><td>${x.ex}${gone.length?`<br><small>→ ${gone.map(sc=>sc.n).join('・')} は ${x.extra.map(e=>SEMI_NAME[e]).join('・')} を含まないので消える</small>`:''}</td><td><b>${c1.map(scName).join('、')}</b></td></tr>`; }).join('');
   return `<div style="overflow-x:auto"><table class="rule"><tr><th>この曲のコード</th><th>種類から出る候補</th><th>候補</th><th>コード名のテンション</th><th>残る候補</th></tr>${rows}</table></div>`;
 }
 /* 避ける音: コードトーンの半音上にあるスケールの音(ドミナントの ♭9・♭13 は例外) */
@@ -998,7 +998,7 @@ const SCALE_STEPS=[
   <p>2度・4度・6度を 9th・11th・13th と呼ぶのは、コードトーン(1・3・5・7)の上にもう1オクターブ積んで数えるためです(2+7=9、4+7=11、6+7=13)。半音上下した形もあります(♭9・#9・#11・♭13)。</p>
   <ul><li>コードが決まれば、1・3・5・7度の4音は決まっています。<b>スケールを選ぶ = 残り3音(9th・11th・13th)をどんな音にするかを選ぶ</b>ことです。</li>
   <li>「このコードで使えるスケール」とは、<b>そのコードの4音を含み、残り3音がそのコードに合っている7音</b>のことです。</li></ul></div>`},
- {id:'sx0a',title:'各スケールの構成音(ルートからの音程)',goal:'イ・ド・フ・リ・ミ・エ・ロと、この曲で使うミクソ♭9♭13 の違いを音程で見る',
+ {id:'sx0a',title:'各スケールの構成音(ルートからの音程)',goal:'各スケールの違いを、ルートからの音程で見る',
   html:`<div class="expl"><p>各スケールが、ルートからどんな音程の音でできているかの一覧です(どのルートでも同じ)。</p>${scaleChartHtml()}</div>`},
  {id:'sx0b',title:'コードの音から候補を絞る',goal:'コードが含む音を、すべて含むスケールが候補',
   html:`<div class="expl">
