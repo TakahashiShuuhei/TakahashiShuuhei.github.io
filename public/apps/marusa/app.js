@@ -711,6 +711,19 @@ function cmpMarks(f,rf,spec){
   }
   return {mine,other};
 }
+/* 実譜(右手)で、このコード(TL の sym のリスト)の区間に使われている音を鍵盤で見せる */
+function makeUsageBlock(syms){
+  const e=TL.find(x=>x.sym===syms[0]);
+  const ns=INTRO_NOTES.filter(n=>n.h==='R'&&syms.includes(chordAt(n.on).sym));
+  const outs=new Map(); ns.forEach(n=>{ if(!e.scaleSet.has(n.p%12)) outs.set(n.p%12,(outs.get(n.p%12)||0)+1); });
+  const NM=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const outTxt=[...outs.entries()].map(([pc,c])=>`<b>${lab(NM[pc])}</b>×${c}`).join('・');
+  const div=document.createElement('div'); div.className='card usage';
+  div.innerHTML=`<div class="h"><b>実譜で使われている音</b><span class="deg">${syms.join('・')}</span></div>
+    <div class="kb">${segKeyboard(e,ns)}</div>
+    <div class="names">右手 ${ns.length} 音のうち、スケール外は <b>${[...outs.values()].reduce((a,b)=>a+b,0)}</b> 音${outs.size?`(${outTxt})`:'(ぜんぶスケール内)'}</div>`;
+  return div;
+}
 /* 1フレーズ分の「見出し + 譜面(背景色つき) + 音の並び」 */
 function makePhraseView(f,hl,title){
   const t0=Math.round(f.a*96), rh=phraseRH(f);
@@ -918,13 +931,59 @@ const STEPS = [
   STEPS.splice(STEPS.findIndex(s=>s.id==='s10'),0,...phSteps);
 }
 
+/* ============ スケール編 ============ */
+const SCALE_RULE_HTML=`
+<div class="callout"><b>選び方の手順</b>:① コード名から <b>3rd と 7th</b> を確認 → ② その2音を含むスケールを選ぶ → ③ スケールの残り3音が<b>テンション</b> → ④ <b>避ける音</b>を確認。</div>
+<div style="overflow-x:auto"><table class="rule"><tr><th>コードの種類</th><th>基本のスケール</th><th>使えるテンション</th><th>避ける音(長く伸ばさない)</th><th>この曲では</th></tr>
+<tr><td><b>△7</b>(メジャー7)</td><td>リディアン(キーの音をそのまま)<br>イオニアン</td><td>9・<b>#11</b>・13</td><td>イオニアンの4度(11th)= 3rd の半音上</td><td>D△7・D△9</td></tr>
+<tr><td><b>m7</b>(マイナー7)</td><td>ドリアン(13th を使う)<br>エオリアン(♭13th を使う)</td><td>9・11・13<br>(エオリアンは 9・11・♭13)</td><td>エオリアンの ♭13th = 5th の半音上で濁りやすい</td><td>F#m7・F#m9(ドリアン)<br>G#m7(エオリアン)</td></tr>
+<tr><td><b>7</b>(長調へ解決)</td><td>ミクソリディアン</td><td>9・13</td><td>11th(= 3rd の半音上)</td><td>(A7 は下の sus4 の形で使用)</td></tr>
+<tr><td><b>7sus4</b>(3rd を弾かない)</td><td>ミクソリディアン</td><td>9・<b>11</b>・13</td><td>3rd を弾かなければ 11th も使える</td><td>A13sus4・A9sus4</td></tr>
+<tr><td><b>7</b>(短調へ解決)</td><td>ミクソ♭9♭13<br>(ハーモニックマイナーを5度から)</td><td><b>♭9</b>・#9・<b>♭13</b></td><td>(♭9・♭13 のひねりが特徴)</td><td>C#7</td></tr>
+<tr class="ref"><td><b>m7♭5</b></td><td>ロクリアン</td><td>11・♭13</td><td>♭9</td><td>(曲中には出ない)</td></tr></table></div>`;
+const SCALE_STEPS=[
+ {id:'sx0',title:'原則:コードからスケールを選ぶルール',goal:'「このコードならこのスケール」を自分で決められるようにする',
+  do:['下の表を見ながら、曲中のコード(D△7・C#7・F#m7・A7sus4・G#m7)に使えるスケールを<b>自分で当ててから</b>、次のステップで答え合わせする。'],
+  think:['<b>スケール7音 = コードトーン4音(R・3・5・7)+ 残り3音(9・11・13)</b>。スケールを選ぶ = どのテンションを使うかを選ぶこと。',
+    '<b>3rd と 7th は動かせない</b>。長/短、△7/7/m7 で候補が絞られる(表)。',
+    '<b>避ける音(アヴォイド)</b> = コードトーンの半音上の音。長く伸ばすと濁る。短い経過音ならOK。',
+    '<b>キーの音</b>(A メジャーの7音)を、そのコードのルートから並べれば基本のスケール(Ⅳ△7 = リディアン)。キーからずれる音が、この曲の「おしゃれ」の元。',
+    '<b>ドミナント7</b>は次のコードで決める:長調へ → ミクソリディアン、短調へ → ♭9・♭13 のひねり。'],
+  html:SCALE_RULE_HTML},
+ {id:'sx1',title:'D△7・D△9(Ⅳ)→ Dリディアン',goal:'キーの音をそのまま D から並べる',
+  do:['右手で D リディアン(D E F# G# A B C#)を上行→下行(♩=60→80)。左手は D の全音符。','青(コードトーン)=D・F#・A・C#、オレンジ=E・G#・B を声に出しながら。'],
+  think:['<b>理由</b>:Ⅳ△7 は A メジャーの音を D から並べた形 = リディアン。キーの音だけなので自然。','<b>他の候補</b>:イオニアン(G=4度)は 3rd(F#)の半音上でぶつかる。G#(#11)なら大丈夫。','<b>実譜の外れ音</b>:ファ(F)だけ(小節2・4)。3rd(ファ#)の半音下から入る接近音。'],
+  cards:{kind:'scale',list:[SCALE_CARDS[0]]},usage:['D△7','D△9']},
+ {id:'sx2',title:'C#7(Ⅲ7)→ C# ミクソ♭9♭13',goal:'解決先が短調のドミナントは、♭9・♭13 でひねる',
+  do:['右手で C#・D・E#(ファ)・F#・G#・A・B を上行→下行。左手は C#。','レ(♭9)とラ(♭13)はオレンジ。この2音が「ひねり」。'],
+  think:['<b>理由</b>:C#7 は F#m7(Ⅵm7)へ向かうドミナント。解決先が短調なので、F# ハーモニックマイナーを C# から並べた形(♭9・♭13)。','<b>他の候補</b>:ミクソリディアン(♮9・♮13)でも弾けるが、F#m に入る緊張感が弱くなる。','<b>実譜の外れ音</b>:ミ(E=#9)・ド(C)・ラ#(A#)。ミはドミナントの定番の飾り(#9)、ドとラ#は接近音。'],
+  cards:{kind:'scale',list:[SCALE_CARDS[1]]},usage:['C#7alt','C#7']},
+ {id:'sx3',title:'F#m7・F#m9(Ⅵm)→ F#ドリアン',goal:'レ#(13th)を使うのがこの曲の色',
+  do:['右手で F# ドリアン(F# G# A B C# D# E)を上行→下行。左手は F#。','レ#(13th)だけ強調して、F#m7 のコードトーンと比べる。'],
+  think:['<b>理由</b>:キーの音だけなら F# エオリアン(レ=♭13)。実譜はレ#(13th)を使うドリアン。','<b>他の候補</b>:エオリアンはレ(♭13)が 5th(ド#)の半音上で濁りやすい。ドリアンが無難。','<b>実譜の外れ音</b>:なし。スケール内の音だけでできている。'],
+  cards:{kind:'scale',list:[SCALE_CARDS[2]]},usage:['F#m9','F#m7']},
+ {id:'sx4',title:'A13sus4・A9sus4(Ⅰ7)→ Aミクソリディアン',goal:'3rd を弾かないと、11th が使える',
+  do:['右手で A ミクソリディアン(A B C# D E F# G)を上行→下行。左手は A。','ド#(3rd)は弾かずに、シ(9)・レ(11)・ファ#(13)を強調して弾く。'],
+  think:['<b>理由</b>:Ⅰ7 は、キーの音の G# を G(♭7)に下げた形。D△7(Ⅳ)へ向かう7thコード。','<b>sus4</b>:3rd(ド#)を弾かないので、11th(レ)が3rdとぶつからず使える。実譜の右手もド#を弾いていない。','<b>実譜の外れ音</b>:ラ#(A#)とド(C)。ラの隣と、ソ(♭7)と一緒に鳴る接近音。'],
+  cards:{kind:'scale',list:[SCALE_CARDS[3]]},usage:['A13sus4','A9sus4']},
+ {id:'sx5',title:'G#m7(Ⅶm7)→ G#エオリアン',goal:'短調への ii–V は、♭13(ミ)を含むスケール',
+  do:['右手で G# エオリアン(G# A# B C# D# E F#)を上行→下行。左手は G#。','ミ(♭13)とド#(11)を意識して弾く。'],
+  think:['<b>理由</b>:G#m7 → C#7 → F#m は短調への ii–V。実譜はミ(♭13)を使うので、B メジャーの音を G# から並べたエオリアン。','<b>他の候補</b>:ドリアン(ミ# = 13th)でも弾ける。','<b>実譜の外れ音</b>:レ(♭5)とラ(♭9)。ロクリアン寄りの音が一瞬混じる。'],
+  cards:{kind:'scale',list:[SCALE_CARDS[4]]},usage:['G#m7']},
+ {id:'sx6',title:'最後の平行下降(A/F# → G#/F → G/E)はスケールではない',goal:'スケールで説明できない和音の動きを区別する',
+  do:['右手(下から 5th・R・3rd)の形のまま、半音ずつ下げて弾く:ミ・ラ・ド# → レ#・ソ#・ド → レ・ソ・シ。左手のベースも F# → F → E。'],
+  think:['3つとも<b>長三和音の第2転回形</b>(下から 5th・R・3rd)。同じ形を半音ずつずらしているだけ。','スケールから選んだ音ではなく、形を動かした「経過的な和音(パッシングコード)」。全部がスケール外の音になる。']}
+];
+STEPS.splice(STEPS.findIndex(s=>s.id==='s7')+1,0,...SCALE_STEPS);
+
 /* ============ ページ構成 ============ */
 const PAGES = [
   {file:'index.html',   title:'はじめに',          desc:'コード進行の地図と、全体の進め方。',ids:[]},
   {file:'p1-chords.html',title:'1. コード編',      desc:'ルート → 4和音 → 転回形 → アルペジオ → つなぎ方 → ガイドトーン → 左手 → テンション。',ids:['s1','s2','inv1','s3','s4','s5','s6','s7']},
-  {file:'p2-phrase.html',title:'2. フレーズ編(小節2〜5)',desc:'イントロを1〜2拍〜1小節のフレーズに切って、1つずつ「コードトーン → スケール → 実譜」で練習する。',intro:'各フレーズを <b>①コードトーン → ②スケール → ③フレーズ(実譜)</b> の順に右手で(♩=60)。①②はそのフレーズの音域だけ。「▶ 前後つき→単独」で前後の和音の中での位置を聴いてから弾く。「🎹 練習」で piano-trainer に読み込める。',ids:['ph01','ph02','ph03','ph04','ph05','ph06','ph07','ph08','ph09']},
-  {file:'p3-score.html', title:'3. フレーズ編(小節6〜9)',desc:'続きのフレーズ(小節6〜9)と、最後に2〜9小節を通す。',intro:'前ページの続き。小節6〜8は小節2〜4の変形なので、「前に弾いたフレーズとどこが違うか」を見る。',ids:['ph10','ph11','ph12','ph13','ph14','ph15','ph16','ph17','ph18','s10']},
-  {file:'p4-improv.html',title:'4. アドリブ編',     desc:'実譜のフレーズの形を、ほかのコードに移して弾く。',ids:['tr1']}
+  {file:'p1b-scale.html',title:'2. スケール編',desc:'コードの種類から使えるスケールを選ぶ原則と、この曲のコードごとのスケール。',intro:'原則を表で確認してから、曲中の5種類のコードそれぞれのスケールを、理由・他の候補・実譜で使っているスケール外の音まで見る。',ids:['sx0','sx1','sx2','sx3','sx4','sx5','sx6']},
+  {file:'p2-phrase.html',title:'3. フレーズ編(小節2〜5)',desc:'イントロを1〜2拍〜1小節のフレーズに切って、1つずつ「コードトーン → スケール → 実譜」で練習する。',intro:'各フレーズを <b>①コードトーン → ②スケール → ③フレーズ(実譜)</b> の順に右手で(♩=60)。①②はそのフレーズの音域だけ。「▶ 前後つき→単独」で前後の和音の中での位置を聴いてから弾く。「🎹 練習」で piano-trainer に読み込める。',ids:['ph01','ph02','ph03','ph04','ph05','ph06','ph07','ph08','ph09']},
+  {file:'p3-score.html', title:'4. フレーズ編(小節6〜9)',desc:'続きのフレーズ(小節6〜9)と、最後に2〜9小節を通す。',intro:'前ページの続き。小節6〜8は小節2〜4の変形なので、「前に弾いたフレーズとどこが違うか」を見る。',ids:['ph10','ph11','ph12','ph13','ph14','ph15','ph16','ph17','ph18','s10']},
+  {file:'p4-improv.html',title:'5. アドリブ編',     desc:'実譜のフレーズの形を、ほかのコードに移して弾く。',ids:['tr1']}
 ];
 const PAGE = PAGES.find(p=>p.file===(document.body.dataset.page||'index.html'))||PAGES[0];
 function renderTabs(){
@@ -961,7 +1020,7 @@ function renderStrip(){
 function renderSteps(){
   const prog=loadProg(); const host=document.getElementById('steps'); if(!host){updateProg();return;} host.innerHTML='';
   if(PAGE.intro){ const c=document.createElement('div'); c.className='callout'; c.style.marginBottom='12px'; c.innerHTML=PAGE.intro; host.appendChild(c); }
-  if(PAGE.ids.some(id=>/^ph/.test(id))) host.appendChild(kbLegend());
+  if(PAGE.ids.some(id=>/^(ph|sx[1-5])/.test(id))) host.appendChild(kbLegend());
   STEPS.forEach((s,i)=>{
     if(!PAGE.ids.includes(s.id)) return;
     const sec=document.createElement('section'); sec.className='step'+(prog[s.id]?' done':'')+(prog['_c_'+s.id]?' closed':''); sec.id=s.id;
@@ -974,6 +1033,7 @@ function renderSteps(){
       <div class="body">${cols}<div class="vis"></div></div>`;
     const vis=sec.querySelector('.vis');
     if(s.note){ const c=document.createElement('div'); c.className='callout'; c.innerHTML=s.note; vis.appendChild(c); }
+    if(s.html){ const h=document.createElement('div'); h.innerHTML=s.html; vis.appendChild(h); }
     if(s.cards){ const g=document.createElement('div'); g.className='cards'; s.cards.list.forEach(k=>g.appendChild(makeCard(typeof k==='string'?CH[k]:k,s.cards.kind))); vis.appendChild(g); }
     if(s.groups){ s.groups.forEach(g=>{
       const dt=document.createElement('details'); dt.className='grp'; dt.open=true;
@@ -986,6 +1046,7 @@ function renderSteps(){
       }
       const cg=document.createElement('div'); cg.className='cards'; g.list.forEach(o=>cg.appendChild(makeCard(o,g.kind||'phrase'))); dt.appendChild(cg); vis.appendChild(dt);
     }); }
+    if(s.usage){ vis.appendChild(makeUsageBlock(s.usage)); }
     if(s.phrase){ vis.appendChild(makeFragCard(s.phrase,{step:true})); }
     if(s.bars){ vis.appendChild(makeBarsView(s.bars[0],s.bars[1],{kb:s.kb,src:s.src?srcFor(s.src):null,srcKey:s.src||'',srcLabel:s.src==='stab'?'和音の刻みだけ':s.src==='melody'?'メロの骨格だけ':''})); }
     if(s.table){
