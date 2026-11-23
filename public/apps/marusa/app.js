@@ -44,7 +44,7 @@ const CH = {
     smooth:['C#4','E4','F#4','A4'],sr:['5','♭7','R','♭3'],
     guide:['A3','E4'],gr:['♭3','♭7'],
     lh:['F#2','E3'],lr:['R','♭7'],
-    ten:{sym:'F#m9',rh:['A3','C#4','E4','G#4'],rr:['♭3','5','♭7','9'],note:'ラ・ド#・ミ・ソ# = <b>A△7</b> と同じ音。F# の上に A△7 を重ねると F#m9。2小節目の上昇の元。'},
+    ten:{sym:'F#m9',rh:['A3','C#4','E4','G#4'],rr:['♭3','5','♭7','9'],note:'ラ・ド#・ミ・ソ# = <b>A△7</b> と同じ音。F# の上に A△7 を重ねると F#m9。3小節目の上昇の元。'},
     scale:'F#ドリアン(F# G# A B C# D# E)= Eメジャーと同じ音を F# から'},
   A7:{sym:'A7',deg:'Ⅰ7',bass:'A2',
     rh:['A3','C#4','E4','G4'],rr:['R','3','5','♭7'],
@@ -135,10 +135,10 @@ const PH_CHORDS = {
 const PH_ALL5=['D△9','G#m7','F#m9','C#7','A7'];
 // 最後のステップ用: 実譜の形を別コードへ移す
 const PH_REAL = [
-  {title:'形1「3rd の半音下から入って、3→5→7→9 と駆け上がる」(実譜3小節目の形)',
-   desc:'実譜3小節目(ファ→ファ#→ラ→ド#→ミ)を別のコードに移す。「接近音(灰)→3rd→5th→7th→9th」。5つのコードすべてで自然に響く。',
+  {title:'形1「3rd の半音下から入って、3→5→7→9 と駆け上がる」(実譜4小節目の形)',
+   desc:'実譜4小節目(ファ→ファ#→ラ→ド#→ミ)を別のコードに移す。「接近音(灰)→3rd→5th→7th→9th」。5つのコードすべてで自然に響く。',
    dir:'up',seq:['app','3','5','7','9'],chords:PH_ALL5,
-   note:{'D△9':'実譜3小節目と同じ音。','G#m7':'接近音は 9th のラ#。','F#m9':'接近音は 9th のソ#。','C#7':'接近音はミ(E)。9th は ♭9(レ)になる。','A7':'接近音はド(ナチュラル)。'}}
+   note:{'D△9':'実譜4小節目と同じ音。','G#m7':'接近音は 9th のラ#。','F#m9':'接近音は 9th のソ#。','C#7':'接近音はミ(E)。9th は ♭9(レ)になる。','A7':'接近音はド(ナチュラル)。'}}
 ];
 const PH_EXT = [
   {title:'形2「3→5→7→9 と上がって 7→5 と戻る」(往復)',
@@ -150,10 +150,10 @@ const PH_EXT = [
    dir:'up',seq:['appU','app<','3','5','7'],chords:PH_ALL5,
    note:{'D△9':'ソ(上)→ファ(下)→ファ#。','G#m7':'ド(上)→ラ#(下)→シ。','F#m9':'ラ#(上)→ソ#(下)→ラ。','C#7':'ファ#(上)→ミ(下)→ファ(E#)。','A7':'レ(上)→ド(下)→ド#。'}}
 ];
-/* 各形の元ネタ(intro.json と照合済み)。bars は 0 始まりの小節番号(表示は +1) */
+/* 各形の元ネタ(intro.json と照合済み)。bars は 0 始まりの小節番号(表示は +2。小節1は全休符) */
 const GEN_TXT='実譜にはない一般的な型(こちらで用意したもの)。';
 const PH_SRC = {
-  '形1':{bars:[2],text:'実譜 小節3(拍8.5〜9.25):ファ→ファ#→ラ→ド#→ミ。'},
+  '形1':{bars:[2],text:'実譜 小節4(拍8.5〜9.25):ファ→ファ#→ラ→ド#→ミ。'},
   '形2':{generic:true,text:GEN_TXT},
   '形3':{generic:true,text:GEN_TXT}
 };
@@ -531,7 +531,7 @@ function makeBarsView(b0,b1,opt){
   for(let b=b0;b<=b1;b++){
     const d=document.createElement('div'); d.className='sbar';
     const chs=TL.filter(e=>e.start>=b*384&&e.start<(b+1)*384).map(e=>e.sym).join(' → ');
-    d.innerHTML=`<div class="h"><b>小節${b+1}</b><button class="btn">▶</button><span>${chs}</span></div><div class="sv"></div>`;
+    d.innerHTML=`<div class="h"><b>小節${b+2}</b><button class="btn">▶</button><span>${chs}</span></div><div class="sv"></div>`;
     d.querySelector('button').onclick=()=>playBars(b,b,opt.src);
     d.querySelector('.h').appendChild(ptButton('bar-'+(b+1)+(opt.srcKey?'-'+opt.srcKey:''),()=>barsSong(b,b,opt.src,opt.srcLabel),'🎹 練習','piano-trainer でこの小節を練習(左右の手の切り替えも可)'));
     try{ renderBar(d.querySelector('.sv'),b,{first:b0,src:opt.src}); }catch(e){ d.querySelector('.sv').innerHTML='<span class="err">譜面の描画に失敗: '+e.message+'</span>'; console.error(e); }
@@ -624,7 +624,7 @@ function chordMemos(w0,w1,toBeat){
 function barsSong(b0,b1,src,label){
   const t0=b0*384,t1=(b1+1)*384, toB=t=>(t-t0)/96;
   const ns=(src||INTRO_NOTES).filter(n=>n.on>=t0&&n.on<t1);
-  return {title:`丸サ イントロ 小節${b0+1}${b1>b0?'-'+(b1+1):''}${label?'('+label+')':''}`,bpm:PT_BPM,
+  return {title:`丸サ イントロ 小節${b0+2}${b1>b0?'-'+(b1+2):''}${label?'('+label+')':''}`,bpm:PT_BPM,
     notes:ns.map(n=>sNote(n.p,toB(n.on),n.du/96,n.h==='L'?'left':'right')),
     memos:chordMemos(t0,t1,toB).sort((a,b)=>a.timing.beat-b.timing.beat)};
 }
@@ -692,7 +692,7 @@ function makeFragCard(f,opt){
   const stageHtml=stages.map((g,i)=>`<div class="stg"><div class="stl"><span class="fno">${g.no}</span><b>${g.name}</b><small>${g.sub}</small><button class="btn sm" data-i="${i}">▶</button></div><div class="staff st${i}"></div><div class="fseq">${g.html}</div></div>`).join('');
   const card=document.createElement('div'); card.className='card frag';
   card.innerHTML=`<div class="h">${opt.step?'':`<b>${f.title}</b>`}<span class="plays"><button class="btn main-play" title="前後の和音つき(練習する音だけ大きく)→ 休符 → 練習する部分だけ">▶ 前後つき→単独</button><button class="btn solo-play">▶ 単独だけ</button></span></div>
-    <div class="fsub">小節${bar+1}(拍${f.a}〜${f.b})・${segs.map(x=>x.e.sym+' '+x.e.deg).join(' → ')}</div>
+    <div class="fsub">小節${bar+2}(拍${f.a}〜${f.b})・${segs.map(x=>x.e.sym+' '+x.e.deg).join(' → ')}</div>
     ${stageHtml}
     ${stages.length?'<div class="stl" style="margin-top:8px"><span class="fno">③</span><b>フレーズ(実譜)</b><small>①の音を、②の中から選んで並べるとこうなる</small></div>':''}
     <div class="staff"></div>
@@ -741,7 +741,7 @@ const PHRASES = [
  {a:5.75,b:8,title:'A13sus:13 → ♭7 → R(+経)→ R → ♭7 → 11 → 5',
   pt:'シ・レ・ファ#・ソ(9・11・13・♭7)の和音から、ファ#(13th)・ソ(♭7)・ラ(R)と上がり、ラの隣のラ#(灰色)をぶつけてから、ラ→ソへ戻る。最後のレ・ミ(11・5)が次の D△9 への橋渡し。3rd(ド#)は弾かない。'},
  {a:8,b:9.75,title:'半音下から入る:(7・9・3)→ 経 → 3 → 5 → 7 → 9',
-  pt:'ド#・ミ・ファ#(7・9・3)の和音のあと、ファ(灰色)から ファ#・ラ・ド#・ミ(3・5・7・9)と上がる。小節1の「ファ#を半音下で飾る」の続きの形。ファ・ファ#・ラは三連符。'},
+  pt:'ド#・ミ・ファ#(7・9・3)の和音のあと、ファ(灰色)から ファ#・ラ・ド#・ミ(3・5・7・9)と上がる。小節2の「ファ#を半音下で飾る」の続きの形。ファ・ファ#・ラは三連符。'},
  {a:9.75,b:11,title:'G#m7:上3音の和音から降りる',
   pt:'シ・レ#・ファ#(♭3・5・♭7)の和音から、ミ(♭13)→ド#(11)→シ(♭3)と降りる。'},
  {a:11,b:12,title:'C#7:和音 → ♭7 → ♭13 → 11',
@@ -751,11 +751,11 @@ const PHRASES = [
  {a:13.75,b:16,title:'A9sus4:和音 → 13 → 5 → (♭7+経)→ 9 → R → 13',
   pt:'ソ・シ・レ・ミ(♭7・9・11・5)の和音のあと、ファ#(13)→ミ(5)→ソ+ド(♭7+灰色)の和音→シ(9)→ラ(R)→ファ#(13)。3rdのド#は弾かない。'},
  {a:16,b:17.75,title:'テンションで始まりテンションで終わる:(9・3・5・7)→ 9 → 3 → 5 → 7 → 9',
-  pt:'ミ・ファ#・ラ・ド#の和音のあと、ミ(9th)から 3rd・5th・7th と上がって、ミ(9th)で終わる。小節3の「半音下から入る」のファを、ミ(9th)に替えた形。'},
+  pt:'ミ・ファ#・ラ・ド#の和音のあと、ミ(9th)から 3rd・5th・7th と上がって、ミ(9th)で終わる。小節4の「半音下から入る」のファを、ミ(9th)に替えた形。'},
  {a:17.75,b:19.75,title:'C#7alt:ファ・ラ・シ を保って上の音だけ動かす',
   pt:'ファ・ラ・シ(3・♭13・♭7)は同じ指のまま、一番上だけレ(♭9)→ド#(R)に動く。そのあと ファ+ラ#(灰色)→シ→ラ。'},
  {a:19.75,b:22,title:'F#m9:和音 → 降りてくる (♭7+9) → 5 → 11 → ♭3 → 9 → 次のRへ',
-  pt:'ラ・ド#・シ(♭3・5・11)の和音のあと、ミ+ソ#(♭7+9)から ド#・シ・ラ・ソ#と降りて、ソ#(9th)から最後のラへ。最後のラは、次の A13sus のルート(ベースの A と同時)。小節2の駆け上がりの逆向き。'},
+  pt:'ラ・ド#・シ(♭3・5・11)の和音のあと、ミ+ソ#(♭7+9)から ド#・シ・ラ・ソ#と降りて、ソ#(9th)から最後のラへ。最後のラは、次の A13sus のルート(ベースの A と同時)。小節3の駆け上がりの逆向き。'},
  {a:22,b:23,title:'1拍の16分:13 → ♭7 → 9 → 11',
   pt:'ファ#(13)→ソ(♭7)→シ(9)→レ(11)。16分音符で切れ目なくつなぐ。3rdのド#は弾かず、テンションとミクソリディアンの音だけで作る。'},
  {a:23,b:24,title:'A13sus:(♭7+9+13)の和音 → 5 → 11 → 5',
@@ -763,7 +763,7 @@ const PHRASES = [
  {a:24,b:25.75,title:'コードトーンだけ:7 → R → 3 → 5 → 7 →(R+3+9)',
   pt:'ぜんぶコードトーン。ド#(7th)から、ルート・3rd・5th・7th と1音ずつ上がり、最後に レ+ファ#+ミ(R+3+9)の和音を先取りで入れる。'},
  {a:25.75,b:27,title:'G#m7:上3音の和音 → ♭13 → ♭7 → 経',
-  pt:'小節3と同じ和音(シ・レ・ファ#=♭3・5・♭7)から、ミ(♭13)→ファ#(♭7)→ラ(灰色)と、今度は上へ向かう。'},
+  pt:'小節4と同じ和音(シ・レ・ファ#=♭3・5・♭7)から、ミ(♭13)→ファ#(♭7)→ラ(灰色)と、今度は上へ向かう。'},
  {a:27,b:28,title:'C#7:3rd+♭13 の和音 → #9 → ♭9 → 11',
   pt:'ファ(3rd)+ラ(♭13)の和音から、ミ(#9)・レ(♭9)と半音ずつ降りて、低いファ#(11th)へ。'},
  {a:28,b:30,title:'平行下降:A/F# → G#/F → G/E',
@@ -788,7 +788,7 @@ const STEPS = [
   groups:['D7','C7','F7','A7','G7'].map(invGroup)},
  {id:'s3',title:'単純なアルペジオ',goal:'コードトーンを順に鳴らす=アルペジオ',
   do:['4和音を下→上、上→下(8分音符)。♩=60→80→100。左手はルートの全音符。'],
-  think:['速そうなフレーズの多くは、コードトーンを順に弾いているだけ。','2小節目の上昇(ソ#・ラ・ド#・ミ・ソ#・シ)は F#m9 のアルペジオ。'],
+  think:['速そうなフレーズの多くは、コードトーンを順に弾いているだけ。','3小節目の上昇(ソ#・ラ・ド#・ミ・ソ#・シ)は F#m9 のアルペジオ。'],
   cards:{kind:'arp',list:[...CARDS_A,'G7']}},
  {id:'s4',title:'近い形でつなぐ(ボイスリーディング)',goal:'動く音だけ動かす',
   do:['カードの形で D△7 → C#7 → F#m7 → A7 → D△7 とつなぐ。動く指だけ動かす。'],
@@ -806,9 +806,9 @@ const STEPS = [
   do:['ステップ2のブロックコードに、オレンジの音(テンション)を足して弾き比べる。D△7→D△9、F#m7→F#m9、A7→A7sus4(9,13)、C#7→C#7(♭9,♭13)。','次に、右手だけで <b>F#m7 → Bm7♭5 → A△7 → G△7</b> と弾く。左手のルート(D → C# → F# → A)の上で、それぞれ D△9 → C#7(♭9,♭13) → F#m9 → A7sus4(9,13) になる。'],
   think:['<b>右手は「ルートの上に重ねた別のコード」</b>と見ると覚えやすい:D=F#m7、C#=Bm7♭5、F#=A△7、A=G△7、G#=B。どれも 3rd か ♭7th から3度ずつ積んだ形で、9・11・13 が自然に入る。','テンション=9th(ルートの2音上)・11th(4音上)・13th(6音上)。','C#7(♭9,♭13) は、ドミナントが F#m に解決する前の「ひねり」。','A7sus4(9,13) は 3rd(ド#)を弾かないので宙に浮く。'],
   cards:{kind:'tension',list:['D7','C7','F7','A7','G7']}},
- {id:'s10',title:'全体を組み立てる(1〜8小節)',goal:'コード名・度数・役割を意識して通して弾く',
+ {id:'s10',title:'全体を組み立てる(2〜9小節)',goal:'コード名・度数・役割を意識して通して弾く',
   do:['左手だけ→右手だけ(2小節ごと)→両手。最後は「今のコード名」を心の中で言いながら(♩=60から)。'],
-  think:['A ブロック(1-2, 5-6)=丸サ進行そのもの。B ブロック(3-4, 7-8)=間に G#m7 を挟んだ変形。5〜7小節は1〜3小節の繰り返し+メロが1オクターブ上。','8小節目は A/F#→G#/F→G/E と、コード全体が半音ずつ下がる平行移動(ベースも F#→F→E)。'],
+  think:['A ブロック(2-3, 6-7)=丸サ進行そのもの。B ブロック(4-5, 8-9)=間に G#m7 を挟んだ変形。6〜8小節は2〜4小節の繰り返し+メロが1オクターブ上。','9小節目は A/F#→G#/F→G/E と、コード全体が半音ずつ下がる平行移動(ベースも F#→F→E)。'],
   bars:[0,7]},
  {id:'tr1',title:'フレーズの形を別のコードに移す(アドリブへの第一歩)',goal:'実譜のフレーズの形を、ほかのコードでも弾く',
   do:['フレーズ断片を1つ選び、度数の並びを保ったまま別のコードの上で弾く(例:D△9 の 9→3→5→7→9 を G#m7 で)。','下の形1〜3を5つのコードで。丸サ進行の各コードで、1コード=1小節で同じ形を順に。','リズムを変えて遊ぶ。慣れたら形を2つ組み合わせる。'],
@@ -822,7 +822,7 @@ const STEPS = [
   const phSteps=PHRASES.map(f=>{
     const t0=Math.round(f.a*96), t1=Math.round(f.b*96);
     const chs=TL.filter((e,i)=>e.start<t1&&(i+1<TL.length?TL[i+1].start:1e9)>t0).map(e=>e.sym).join(' → ');
-    return {id:'ph'+String(f.fid).padStart(2,'0'),title:`小節${Math.floor((t0+t1)/2/384)+1}・${chs}`,goal:f.title,phrase:f};
+    return {id:'ph'+String(f.fid).padStart(2,'0'),title:`小節${Math.floor((t0+t1)/2/384)+2}・${chs}`,goal:f.title,phrase:f};
   });
   STEPS.splice(STEPS.findIndex(s=>s.id==='s10'),0,...phSteps);
 }
@@ -831,8 +831,8 @@ const STEPS = [
 const PAGES = [
   {file:'index.html',   title:'はじめに',          desc:'コード進行の地図と、全体の進め方。',ids:[]},
   {file:'p1-chords.html',title:'1. コード編',      desc:'ルート → 4和音 → 転回形 → アルペジオ → つなぎ方 → ガイドトーン → 左手 → テンション。',ids:['s1','s2','inv1','s3','s4','s5','s6','s7']},
-  {file:'p2-phrase.html',title:'2. フレーズ編(小節1〜4)',desc:'イントロを1〜2拍〜1小節のフレーズに切って、1つずつ「コードトーン → スケール → 実譜」で練習する。',intro:'各フレーズを <b>①コードトーン → ②スケール → ③フレーズ(実譜)</b> の順に右手で(♩=60)。①②はそのフレーズの音域だけ。「▶ 前後つき→単独」で前後の和音の中での位置を聴いてから弾く。「🎹 練習」で piano-trainer に読み込める。',ids:['ph01','ph02','ph03','ph04','ph05','ph06','ph07','ph08','ph09']},
-  {file:'p3-score.html', title:'3. フレーズ編(小節5〜8)',desc:'続きのフレーズ(小節5〜8)と、最後に1〜8小節を通す。',intro:'前ページの続き。小節5〜7は小節1〜3の変形なので、「前に弾いたフレーズとどこが違うか」を見る。',ids:['ph10','ph11','ph12','ph13','ph14','ph15','ph16','ph17','ph18','s10']},
+  {file:'p2-phrase.html',title:'2. フレーズ編(小節2〜5)',desc:'イントロを1〜2拍〜1小節のフレーズに切って、1つずつ「コードトーン → スケール → 実譜」で練習する。',intro:'各フレーズを <b>①コードトーン → ②スケール → ③フレーズ(実譜)</b> の順に右手で(♩=60)。①②はそのフレーズの音域だけ。「▶ 前後つき→単独」で前後の和音の中での位置を聴いてから弾く。「🎹 練習」で piano-trainer に読み込める。',ids:['ph01','ph02','ph03','ph04','ph05','ph06','ph07','ph08','ph09']},
+  {file:'p3-score.html', title:'3. フレーズ編(小節6〜9)',desc:'続きのフレーズ(小節6〜9)と、最後に2〜9小節を通す。',intro:'前ページの続き。小節6〜8は小節2〜4の変形なので、「前に弾いたフレーズとどこが違うか」を見る。',ids:['ph10','ph11','ph12','ph13','ph14','ph15','ph16','ph17','ph18','s10']},
   {file:'p4-improv.html',title:'4. アドリブ編',     desc:'実譜のフレーズの形を、ほかのコードに移して弾く。',ids:['tr1']}
 ];
 const PAGE = PAGES.find(p=>p.file===(document.body.dataset.page||'index.html'))||PAGES[0];
@@ -865,7 +865,7 @@ function renderStrip(){
   ];
   const last=[['A/F#','',0.5],['G#/F','',0.5],['G/E','',1],['(休)','',2]];
   const all=[...B,B[0],B[1],B[2],last];
-  document.getElementById('strip').innerHTML=all.map((ch,i)=>`<div class="bar ${i>=4&&i<7?'rep':''}"><div class="no">小節${i+1}${i>=4&&i<7?'(1-3の繰り返し)':''}${i===7?'(平行下降)':''}</div><div class="chs">${ch.map(c=>`<div class="c" style="--w:${c[2]}"><b>${c[0]}</b><i>${c[1]}</i></div>`).join('')}</div></div>`).join('');
+  document.getElementById('strip').innerHTML=all.map((ch,i)=>`<div class="bar ${i>=4&&i<7?'rep':''}"><div class="no">小節${i+2}${i>=4&&i<7?'(2-4の繰り返し)':''}${i===7?'(平行下降)':''}</div><div class="chs">${ch.map(c=>`<div class="c" style="--w:${c[2]}"><b>${c[0]}</b><i>${c[1]}</i></div>`).join('')}</div></div>`).join('');
 }
 function renderSteps(){
   const prog=loadProg(); const host=document.getElementById('steps'); if(!host){updateProg();return;} host.innerHTML='';
@@ -890,7 +890,7 @@ function renderSteps(){
       if(g.src){
         const sl=document.createElement('div'); sl.className='srcline';
         sl.innerHTML=`<span class="badge ${g.src.generic?'gen':'sc'}">${g.src.generic?'一般的な型':'実譜由来'}</span><span>${g.src.text}</span>`;
-        (g.src.bars||[]).forEach(b=>{ const bt=document.createElement('button'); bt.className='btn'; bt.textContent=`▶ 実譜 小節${b+1}`; bt.onclick=()=>playBars(b,b); sl.appendChild(bt); });
+        (g.src.bars||[]).forEach(b=>{ const bt=document.createElement('button'); bt.className='btn'; bt.textContent=`▶ 実譜 小節${b+2}`; bt.onclick=()=>playBars(b,b); sl.appendChild(bt); });
         dt.appendChild(sl);
       }
       const cg=document.createElement('div'); cg.className='cards'; g.list.forEach(o=>cg.appendChild(makeCard(o,g.kind||'phrase'))); dt.appendChild(cg); vis.appendChild(dt);
@@ -924,7 +924,7 @@ $('tg-col').onchange=e=>{state.color=e.target.checked;saveSettings();renderSteps
 $('tg-bpm').onchange=e=>{state.bpm=+e.target.value;saveSettings();};
 $('btn-stop').onclick=stopAll;
 if($('btn-all')){ $('btn-all').onclick=()=>playBars(0,7);
-  const pb=ptButton('intro-all',()=>barsSong(0,7),'🎹 piano-trainer で全体を練習','イントロ1〜8小節を piano-trainer に読み込む'); pb.style.marginLeft='8px'; $('btn-all').after(pb); }
+  const pb=ptButton('intro-all',()=>barsSong(0,7),'🎹 piano-trainer で全体を練習','イントロ2〜9小節を piano-trainer に読み込む'); pb.style.marginLeft='8px'; $('btn-all').after(pb); }
 if($('strip')) renderStrip();
 renderTabs(); renderPager();
 renderSteps();
