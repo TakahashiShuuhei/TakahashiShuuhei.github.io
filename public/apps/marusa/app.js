@@ -409,6 +409,7 @@ function buildHand(evs,hand){
   const clef=hand==='R'?'treble':'bass';
   const notes=[],tups=[]; let tgrp=[];
   evs.forEach(ev=>{
+    if(ev.barline){ notes.push(new VF.BarNote()); return; }
     const dur=ev.s+(ev.dot?'d':'');
     let sn;
     if(!ev.notes){ sn=new StaveNote({clef,keys:[hand==='R'?'b/4':'d/3'],duration:dur+'r'}); }
@@ -535,7 +536,10 @@ function roleTxt(p,on){
   return '経';
 }
 function renderFragStaff(el,rh,bar){
-  const evs=barEvents('R',bar,rh);
+  // フレーズが小節をまたぐときは、各小節のイベントを小節線(barline)でつなぐ
+  const b0=Math.floor(Math.min(...rh.map(n=>n.on))/384), b1=Math.floor(Math.max(...rh.map(n=>n.on))/384);
+  const evs=[];
+  for(let b=b0;b<=b1;b++){ if(b>b0) evs.push({barline:true}); evs.push(...barEvents('R',b,rh)); }
   while(evs.length&&!evs[0].notes) evs.shift();
   while(evs.length&&!evs[evs.length-1].notes) evs.pop();
   drawEvStaff(el,evs,Math.min(...rh.map(n=>n.p)),Math.max(...rh.map(n=>n.p)),true);
@@ -547,8 +551,8 @@ function renderSeqStaff(el,pitches,tick){
 function drawEvStaff(el,evs,lowP,hiP,labels){
   const {Renderer,Stave,Formatter,Beam}=VF;
   const nEv=evs.filter(e=>e.notes).length;
-  const topY=hiP>=81?52:42, W=Math.min(760,Math.max(300,110+nEv*46)), Ht=topY+(lowP<55?135:lowP<60?110:90)+(hiP>=72?40:0);
-  const r=new Renderer(el,Renderer.Backends.SVG); r.resize(W,Ht); const ctx=r.getContext();
+  const topY=hiP>=81?52:42, W=Math.min(760,Math.max(300,110+nEv*46+(evs.some(e=>e.barline)?50:0))), Ht=topY+(lowP<55?135:lowP<60?110:90)+(hiP>=72?40:0);
+  const r=new Renderer(el,Renderer.Backends.SVG); r.resize(W+40,Ht); const ctx=r.getContext();   // 右に余白(コード名ラベルが切れないように)
   const st=new Stave(2,topY,W-8); st.addClef('treble').addKeySignature('A'); st.setContext(ctx).draw();
   const X=buildHand(evs,'R');
   let beams=[]; try{beams=Beam.generateBeams(X.notes);}catch(e){} // 音符を描く前に作る(フラッグを消すため)
@@ -650,8 +654,9 @@ function makeFragCard(f,opt){
   });
   // 段階練習: ① コードトーン(+このフレーズで使うテンション) → ② スケール → ③ フレーズ。音域はフレーズの最低音〜最高音
   const stages=[];
-  if(segs.length===1&&segs[0].e.scaleSet){
-    const e=segs[0].e, ps=rh.map(n=>n.p), lo=Math.min(...ps), hi=Math.max(...ps), tick=segs[0].sn[0].on;
+  const tail=segs.slice(1).reduce((a,x)=>a+x.sn.length,0);   // 次のコードに入ってしまった音(着地の1音など)
+  if(segs[0].e.scaleSet&&tail<=1){
+    const e=segs[0].e, ps=segs[0].sn.map(n=>n.p), lo=Math.min(...ps), hi=Math.max(...ps), tick=segs[0].sn[0].on;
     const used=new Set(ps.map(p=>p%12)), ct=[], sc=[];
     for(let m=lo;m<=hi;m++){
       const pc=m%12;
@@ -727,10 +732,10 @@ const PHRASES = [
   pt:'ミ・ファ#・ラ・ド#の和音のあと、ミ(9th)から 3rd・5th・7th と上がって、ミ(9th)で終わる。小節3の「半音下から入る」のファを、ミ(9th)に替えた形。'},
  {a:17.75,b:19.75,title:'C#7alt:ファ・ラ・シ を保って上の音だけ動かす',
   pt:'ファ・ラ・シ(3・♭13・♭7)は同じ指のまま、一番上だけレ(♭9)→ド#(R)に動く。そのあと ファ+ラ#(灰色)→シ→ラ。'},
- {a:19.75,b:21.75,title:'F#m9:和音 → 降りてくる (♭7+9) → 5 → 11 → ♭3 → 9',
-  pt:'ラ・ド#・シ(♭3・5・11)の和音のあと、ミ+ソ#(♭7+9)から ド#・シ・ラ・ソ#と降りて、ソ#(9th)に着地。小節2の駆け上がりの逆向き。'},
- {a:21.75,b:23,title:'休みなしの16分:R → 13 → ♭7 → 9 → 11',
-  pt:'ラ(R)→ファ#(13)→ソ(♭7)→シ(9)→レ(11)。16分音符で切れ目なくつなぐ。3rdのド#は弾かず、テンションとミクソリディアンの音だけで作る。'},
+ {a:19.75,b:22,title:'F#m9:和音 → 降りてくる (♭7+9) → 5 → 11 → ♭3 → 9 → 次のRへ',
+  pt:'ラ・ド#・シ(♭3・5・11)の和音のあと、ミ+ソ#(♭7+9)から ド#・シ・ラ・ソ#と降りて、ソ#(9th)から最後のラへ。最後のラは、次の A13sus のルート(ベースの A と同時)。小節2の駆け上がりの逆向き。'},
+ {a:22,b:23,title:'1拍の16分:13 → ♭7 → 9 → 11',
+  pt:'ファ#(13)→ソ(♭7)→シ(9)→レ(11)。16分音符で切れ目なくつなぐ。3rdのド#は弾かず、テンションとミクソリディアンの音だけで作る。'},
  {a:23,b:24,title:'A13sus:(♭7+9+13)の和音 → 5 → 11 → 5',
   pt:'ソ・シ・ファ#(♭7・9・13)の和音から、ミ・レ・ミ。次の小節の D△9 につなぐ。'},
  {a:24,b:25.75,title:'コードトーンだけ:7 → R → 3 → 5 → 7 →(R+3+9)',
