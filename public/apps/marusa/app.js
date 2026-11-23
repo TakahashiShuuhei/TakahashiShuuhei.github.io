@@ -1022,23 +1022,18 @@ const SCALE_STEPS=[
   <h4>④ 実譜で実際に使っている音を確かめる</h4>
   <p>候補のうち、実譜の音がより多く入っているほうが、そのスケールの可能性が高くなります。</p></div>`},
  {id:'sx1',title:'D△7・D△9(Ⅳ)→ Dリディアン',goal:'キーの音をそのまま D から並べる',
-  do:['右手で D リディアン(D E F# G# A B C#)を上行→下行(♩=60→80)。左手は D の全音符。','青(コードトーン)=D・F#・A・C#、オレンジ=E・G#・B を声に出しながら。'],
   think:['<b>候補</b>:△7(M3・P5・M7)を含むスケールは イオニアン・リディアン。D△9 の 9th(M2)はどちらにもある。','<b>イオニアンだと…</b>:P4(ソ)が M3(ファ#)の半音上で、避ける音になる。リディアンなら #4(ソ#)なので避ける音がない。キーの音(A メジャー)とも一致 → <b>リディアン</b>。','<b>実譜の外れ音</b>:ファ(F)だけ(小節2・4)。3rd(ファ#)の半音下から入る接近音。'],
   cards:{kind:'scale',list:[SCALE_CARDS[0]]},usage:['D△7','D△9']},
  {id:'sx2',title:'C#7(Ⅲ7)→ C# ミクソ♭9♭13',goal:'解決先が短調のドミナントは、♭9・♭13 でひねる',
-  do:['右手で C#・D・E#(ファ)・F#・G#・A・B を上行→下行。左手は C#。','レ(♭9)とラ(♭13)はオレンジ。この2音が「ひねり」。'],
   think:['<b>候補</b>:7(M3・P5・m7)を含むのは ミクソリディアン・ミクソ♭9♭13。','<b>ミクソリディアンだと…</b>:コード名の ♭9(レ)・♭13(ラ)が入っていない(M2・M6 になる)ので消える。→ <b>ミクソ♭9♭13</b>。解決先が F#m7(短調)で、F# の音から並べた形とも一致。','<b>実譜の外れ音</b>:ミ(E=#9)・ド(C)・ラ#(A#)。ミはドミナントの定番の飾り(#9)、ドとラ#は接近音。'],
   cards:{kind:'scale',list:[SCALE_CARDS[1]]},usage:['C#7alt','C#7']},
  {id:'sx3',title:'F#m7・F#m9(Ⅵm)→ F#ドリアン',goal:'レ#(13th)を使うのがこの曲の色',
-  do:['右手で F# ドリアン(F# G# A B C# D# E)を上行→下行。左手は F#。','レ#(13th)だけ強調して、F#m7 のコードトーンと比べる。'],
   think:['<b>候補</b>:m7(m3・P5・m7)を含むのは ドリアン・フリジアン・エオリアン。F#m9 の 9th(M2)で、m2 のフリジアンが消える。','<b>エオリアンだと…</b>:m6(レ)が P5(ド#)の半音上で、避ける音になる。実譜はレ#(M6)を使っている → <b>ドリアン</b>。','<b>実譜の外れ音</b>:なし。スケール内の音だけでできている。'],
   cards:{kind:'scale',list:[SCALE_CARDS[2]]},usage:['F#m9','F#m7']},
  {id:'sx4',title:'A13sus4・A9sus4(Ⅰ7)→ Aミクソリディアン',goal:'3rd を弾かないと、11th が使える',
-  do:['右手で A ミクソリディアン(A B C# D E F# G)を上行→下行。左手は A。','ド#(3rd)は弾かずに、シ(9)・レ(11)・ファ#(13)を強調して弾く。'],
   think:['<b>候補</b>:7sus4(P4・P5・m7)+ 9th(M2)・13th(M6)を含むのは ドリアン・ミクソリディアン。','<b>違いは 3rd だけ</b>(ドリアン=m3、ミクソリディアン=M3)。sus4 は 3rd を弾かないので、コードからは決まらない。','<b>決め手</b>:A は D△7 へ向かうドミナント。D メジャーの音を A から並べた形 → <b>ミクソリディアン</b>(ドリアンだと m3=ドが入ってしまう)。実譜の右手もド#を弾いていない。','<b>実譜の外れ音</b>:ラ#(A#)とド(C)。ラの隣と、ソ(♭7)と一緒に鳴る接近音。'],
   cards:{kind:'scale',list:[SCALE_CARDS[3]]},usage:['A13sus4','A9sus4']},
  {id:'sx5',title:'G#m7(Ⅶm7)→ G#エオリアン',goal:'短調への ii–V は、♭13(ミ)を含むスケール',
-  do:['右手で G# エオリアン(G# A# B C# D# E F#)を上行→下行。左手は G#。','ミ(♭13)とド#(11)を意識して弾く。'],
   think:['<b>候補</b>:m7(m3・P5・m7)を含むのは ドリアン・フリジアン・エオリアン。','<b>ドリアンだと…</b>:6度が M6(ミ#)。実譜はミ(m6)を使っているので合わない。<b>フリジアンだと…</b>:m2(ラ)がルートの半音上で避ける音が増える。→ <b>エオリアン</b>(B メジャーの音)。','<b>実譜の外れ音</b>:レ(♭5)とラ(♭9)。ロクリアン寄りの音が一瞬混じる。エオリアンの m6(ミ)は避ける音だが、短く通る。'],
   cards:{kind:'scale',list:[SCALE_CARDS[4]]},usage:['G#m7']}
 ];
@@ -1092,9 +1087,9 @@ function renderSteps(){
   STEPS.forEach((s,i)=>{
     if(!PAGE.ids.includes(s.id)) return;
     const sec=document.createElement('section'); sec.className='step'+(prog[s.id]?' done':'')+(prog['_c_'+s.id]?' closed':''); sec.id=s.id;
-    const cols=s.do?`<div class="cols">
-        <div><h3><span class="tag">弾く</span></h3><ul>${s.do.map(x=>`<li>${x}</li>`).join('')}</ul></div>
-        <div><h3><span class="tag th">考える</span></h3><ul>${s.think.map(x=>`<li>${x}</li>`).join('')}</ul></div>
+    const cols=(s.do||s.think)?`<div class="cols"${s.do&&s.think?'':' style="grid-template-columns:1fr"'}>
+        ${s.do?`<div><h3><span class="tag">弾く</span></h3><ul>${s.do.map(x=>`<li>${x}</li>`).join('')}</ul></div>`:''}
+        ${s.think?`<div><h3><span class="tag th">考える</span></h3><ul>${s.think.map(x=>`<li>${x}</li>`).join('')}</ul></div>`:''}
       </div>`:'';
     sec.innerHTML=`<header><div class="num">${i+1}</div><div><h2>${s.title}</h2><div class="goal">${s.goal}</div></div>
       <label class="chk" onclick="event.stopPropagation()"><input type="checkbox" ${prog[s.id]?'checked':''}> できた</label></header>
