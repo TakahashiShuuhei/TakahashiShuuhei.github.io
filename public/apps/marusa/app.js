@@ -907,7 +907,7 @@ function avoidHtml(){
       rows.push(`<tr>${i===0?`<td rowspan="${arr.length}"><b>${tn}</b></td>`:''}<td>${scName(sc)}</td><td>${av.length?av.map(x=>`<b>${SEMI_NAME[x]}</b>(${SEMI_NAME[x-1]}の半音上)`).join('、'):'なし'}</td></tr>`); }); });
   return `<div style="overflow-x:auto"><table class="rule"><tr><th>コード</th><th>候補スケール</th><th>避ける音</th></tr>${rows.join('')}</table></div>`;
 }
-/* 各コードのスケール比較図: 12音(A〜G#)を横に並べ、コードごとにスケール上の音・役割・実譜で使う音を示す */
+/* 各コードのスケール比較図: コードごとの鍵盤を縦に並べ、どの音が入れ替わるかを見る */
 const CMP_ROWS=[
  {syms:['D△7','D△9'],label:'D△7・D△9',scale:'D リディアン'},
  {syms:['C#7(♭9,♭13)','C#7'],label:'C#7',scale:'C# ミクソ♭9♭13'},
@@ -916,26 +916,19 @@ const CMP_ROWS=[
  {syms:['G#m7'],label:'G#m7',scale:'G# エオリアン'}
 ];
 function compareChartHtml(){
-  const NM=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'], order=[9,10,11,0,1,2,3,4,5,6,7,8];   // A から始まる並び
-  const KEY=new Set([9,11,1,2,4,6,8]);   // A メジャー(A B C# D E F# G#)
-  const head=order.map(pc=>`<th class="${KEY.has(pc)?'inkey':''}">${lab(NM[pc])}</th>`).join('');
-  const keyRow=order.map(pc=>`<td class="${KEY.has(pc)?'kcell':'kno'}"></td>`).join('');
+  const LO=60, HI=83, KEY=new Set([9,11,1,2,4,6,8]);   // C4〜B5 / A メジャー(A B C# D E F# G#)
+  const rowHtml=(label,sub,svg)=>`<div class="cmprow"><div class="cmplabel"><b>${label}</b>${sub?`<br><small>${sub}</small>`:''}</div><div class="kb">${svg}</div></div>`;
   const rows=CMP_ROWS.map(r=>{
     const e=TL.find(x=>x.sym===r.syms[0]);
-    const played=new Set(INTRO_NOTES.filter(n=>n.h==='R'&&r.syms.includes(chordAt(n.on).sym)).map(n=>n.p%12));
-    const cells=order.map(pc=>{
-      const ct=e.tp.includes(pc), ten=e.np.includes(pc), sc=e.scaleSet.has(pc), pl=played.has(pc);
-      let cls='', txt='';
-      if(ct){cls='c-ct'; txt=e.rp[pc]||'';} else if(ten){cls='c-ten'; txt=e.rp[pc]||'';} else if(sc){cls='c-sc'; txt=e.rp[pc]||'';}
-      else if(pl){cls='c-out';}
-      if((ct||ten||pl)&&!sc) cls+=' dash';   // スケール外
-      return `<td class="${cls}">${txt}${pl?'<i class="pl"></i>':''}</td>`;
-    }).join('');
-    return `<tr><th class="rl"><b>${r.label}</b><br><small>${r.scale}</small></th>${cells}</tr>`;
+    const pcs=new Set(INTRO_NOTES.filter(n=>n.h==='R'&&r.syms.includes(chordAt(n.on).sym)).map(n=>n.p%12));
+    const hl={}, played=new Set();
+    for(let m=LO;m<=HI;m++){ const pc=m%12;
+      if(e.tp.includes(pc)||e.np.includes(pc)){ const t=e.rp[pc]; hl[m]={cls:t?roleCls(t):'ct',txt:t||''}; }
+      if(pcs.has(pc)) played.add(m); }
+    return rowHtml(r.label,r.scale,keyboard(hl,{range:[LO,HI],scale:e.scaleSet,played}));
   }).join('');
-  return `<div class="expl"><div style="overflow-x:auto"><table class="cmpchart"><tr><th class="rl"></th>${head}</tr>
-    <tr class="keyrow"><th class="rl"><small>A メジャーの音(キー)</small></th>${keyRow}</tr>${rows}</table></div>
-    <div class="cmpleg"><span class="sw c-ct"></span>コードトーン <span class="sw c-ten"></span>テンション <span class="sw c-sc"></span>スケール上の音 <span class="sw dash"></span>スケール外の音(実譜で使っているもの) <span class="pl"></span>実譜で使っている音 <span class="sw kcell"></span>キーの音</div></div>`;
+  return `<div class="expl">${rowHtml('A メジャーの音','(キー)',keyboard({},{range:[LO,HI],scale:KEY}))}${rows}
+    <div class="cmpleg"><span class="sw c-ct"></span>コードトーン <span class="sw c-ten"></span>テンション <span class="sw c-sc"></span>スケール上の音(キーの行では A メジャーの音) <span class="pl"></span>実譜で使っている音(色なしの白鍵に丸=スケール外の音)</div></div>`;
 }
 const SCALE_STEPS=[
  {id:'sx0',title:'スケールとコードの関係',goal:'スケール = コードトーン4音 + テンション3音',
