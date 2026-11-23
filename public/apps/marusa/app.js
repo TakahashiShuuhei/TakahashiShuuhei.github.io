@@ -548,20 +548,20 @@ function roleTxt(p,on){
   if(e.tp.includes(pc)||e.np.includes(pc)) return e.rp[pc]||'';
   return '経';
 }
-function renderFragStaff(el,rh,bar){
+function renderFragStaff(el,rh,bar,hl){
   // フレーズが小節をまたぐときは、各小節のイベントを小節線(barline)でつなぐ
   const b0=Math.floor(Math.min(...rh.map(n=>n.on))/384), b1=Math.floor(Math.max(...rh.map(n=>n.on))/384);
   const evs=[];
   for(let b=b0;b<=b1;b++){ if(b>b0) evs.push({barline:true}); evs.push(...barEvents('R',b,rh,{carry:b>b0,tieOut:b<b1})); }
   while(evs.length&&!evs[0].notes) evs.shift();
   while(evs.length&&!evs[evs.length-1].notes) evs.pop();
-  drawEvStaff(el,evs,Math.min(...rh.map(n=>n.p)),Math.max(...rh.map(n=>n.p)),true);
+  drawEvStaff(el,evs,Math.min(...rh.map(n=>n.p)),Math.max(...rh.map(n=>n.p)),true,hl);
 }
 /* 段階練習用:音の並び(8分音符・上行)だけの譜面。色はコード tick の上での役割 */
 function renderSeqStaff(el,pitches,tick){
   drawEvStaff(el,pitches.map(p=>({s:'8',dot:0,notes:[{p}],tick})),Math.min(...pitches),Math.max(...pitches),false);
 }
-function drawEvStaff(el,evs,lowP,hiP,labels){
+function drawEvStaff(el,evs,lowP,hiP,labels,hl){
   const {Renderer,Stave,Formatter,Beam}=VF;
   const nEv=evs.filter(e=>e.notes).length;
   const topY=hiP>=81?52:42, W=Math.min(760,Math.max(300,110+nEv*46+(evs.some(e=>e.barline)?50:0))), Ht=topY+(lowP<55?135:lowP<60?110:90)+(hiP>=72?40:0);
@@ -582,6 +582,17 @@ function drawEvStaff(el,evs,lowP,hiP,labels){
     if(!ps.length) return;
     new VF.StaveTie({first_note:ev.sn,last_note:nx.sn,first_indices:ps.map(p=>pa.indexOf(p)),last_indices:ps.map(p=>pb.indexOf(p))}).setContext(ctx).draw();
   });
+  // 対応部分の背景色(hl: 音の開始tick → 色)。音符より後ろに敷くため SVG の先頭に挿入
+  if(hl&&hl.size){
+    const svg=el.querySelector('svg'), xs=evs.filter(e=>e.sn).map(e=>({e,x:e.sn.getAbsoluteX()}));
+    for(let i=0;i<xs.length;i++){
+      const col=xs[i].e.notes&&hl.get(xs[i].e.tick); if(!col) continue;
+      const x=xs[i].x, l=i>0?(xs[i-1].x+x)/2:x-16, rr=i+1<xs.length?(x+xs[i+1].x)/2:x+24;
+      const rc=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      rc.setAttribute('x',l); rc.setAttribute('y',topY-6); rc.setAttribute('width',Math.max(10,rr-l)); rc.setAttribute('height',Ht-topY+2);
+      rc.setAttribute('rx',4); rc.setAttribute('fill',col); svg.insertBefore(rc,svg.firstChild);
+    }
+  }
   // コード名ラベル(最初の音の上 + 途中でコードが変わる位置)
   const first=evs.find(e=>e.notes); if(!first||!labels) return;
   ctx.setFont('sans-serif',12,'bold'); ctx.setFillStyle('#111');
@@ -682,51 +693,37 @@ function alignSlots(A,B){
   }
   return out.reverse();
 }
-function cmpChip(nt,on,other){
-  const same=other&&other.notes.some(o=>o.pc===nt.pc);
-  const r=roleTxt(nt.p,on);
-  return `<span class="chip ${other?(same?'same':'diff'):''}">${lab(midiName(nt.p))}${r?`<small>(${r})</small>`:''}</span>`;
-}
-function cmpCell(slot,other,asSet){
-  if(!slot) return '<td class="cell gap">—</td>';
-  const cls=!other?'only':(slot.notes.every(n=>other.notes.some(o=>o.pc===n.pc))&&(asSet||slot.notes.length===other.notes.length)?'same':'sub');
-  return `<td class="cell ${cls}">${slot.notes.slice().reverse().map(nt=>cmpChip(nt,slot.on,other)).join('<br>')}</td>`;
-}
-function makeCmpTable(f,rf,mode){
-  const A=slotsOf(f), B=slotsOf(rf), bf=phraseBar(f), br=phraseBar(rf);
-  const box=document.createElement('div'); box.className='cmp';
-  let body;
+/* 対応する音の背景色。{mine: このフレーズ用, other: 比べる先用} それぞれ 音の開始tick → 色 */
+const HL_SAME='rgba(74,222,128,.30)', HL_DIFF='rgba(250,204,21,.38)';
+function cmpMarks(f,rf,mode){
+  const A=slotsOf(f), B=slotsOf(rf), mine=new Map(), other=new Map();
   if(mode==='set'){
-    // 向きがちがうだけの対比: 並びをそろえず、使っている音(音名)が相手にもあるかだけを示す
-    const row=(S,O)=>S.map(x=>cmpCell(x,{notes:O.flatMap(o=>o.notes)},true)).join('');
-    body=`<tr><th>このフレーズ(小節${bf})</th>${row(A,B)}</tr><tr><th>比べる先(小節${br})</th>${row(B,A)}</tr>`;
+    const pa=new Set(A.flatMap(x=>x.notes.map(n=>n.pc))), pb=new Set(B.flatMap(x=>x.notes.map(n=>n.pc)));
+    const mark=(S,P,M)=>S.forEach(x=>{ const k=x.notes.filter(n=>P.has(n.pc)).length; if(k) M.set(x.on,k===x.notes.length?HL_SAME:HL_DIFF); });
+    mark(A,pb,mine); mark(B,pa,other);
   }else{
-    const al=alignSlots(A,B);
-    body=`<tr><th>このフレーズ(小節${bf})</th>${al.map(([a,b])=>cmpCell(a,b)).join('')}</tr><tr><th>比べる先(小節${br})</th>${al.map(([a,b])=>cmpCell(b,a)).join('')}</tr>`;
+    alignSlots(A,B).forEach(([a,b])=>{
+      if(!a||!b) return;
+      const same=a.notes.length===b.notes.length&&a.notes.every(n=>b.notes.some(o=>o.pc===n.pc));
+      mine.set(a.on,same?HL_SAME:HL_DIFF); other.set(b.on,same?HL_SAME:HL_DIFF);
+    });
   }
-  box.innerHTML=`<div class="cmphd">対応表:小節${bf} と 小節${br}「${rf.title.split(':')[0]}」${mode==='set'?'<small>(並びは逆向き。使っている音が同じかだけを比べる)</small>':''}</div>
-    <div class="cmpscroll"><table class="cmpt">${body}</table></div>
-    <div class="cmplg"><span class="chip same">同じ音</span><span class="chip diff">ちがう音</span><span class="cell only">片方にだけある</span>${mode==='set'?'':'<small>縦=同時に鳴る音、横=時間順に位置をそろえています</small>'}</div>`;
-  return box;
+  return {mine,other};
 }
-function makeRefDetails(rf){
+function makeRefDetails(rf,hl){
   const f=rf, t0=Math.round(f.a*96), t1=Math.round(f.b*96);
   const rh=phraseRH(f);
   const lh=INTRO_NOTES.filter(n=>n.h==='L'&&n.on<t1&&n.on+n.du>t0);
   const by=new Map(); rh.slice().sort((x,y)=>x.on-y.on||x.p-y.p).forEach(n=>{ if(!by.has(n.on))by.set(n.on,[]); by.get(n.on).push(n); });
   const one=n=>{ const r=roleTxt(n.p,n.on); return `<span style="color:${COL[roleOf(n.p,n.on)]}">${lab(midiName(n.p))}${r?`<small>(${r})</small>`:''}</span>`; };
   const seq=[...by.values()].map(g=>g.length>1?'<span class="chd">('+g.map(one).join(' ')+')</span>':one(g[0])).join(' → ');
-  const d=document.createElement('details'); d.className='ref';
+  const d=document.createElement('details'); d.className='ref'; d.open=true;
   const sid='ph'+String(f.fid).padStart(2,'0');
-  d.innerHTML=`<summary>小節${phraseBar(f)}のフレーズの譜面・解説を見る</summary>
+  d.innerHTML=`<summary>比べる先:小節${phraseBar(f)}「${f.title.split(':')[0]}」</summary>
     <div class="refbody"><div class="staff"></div><div class="fseq">${seq}</div><div class="refpt">${f.pt}</div>
     <div class="refbtn"><button class="btn sm">▶ 聴く</button> <a href="#${sid}" class="reflink">このフレーズのステップへ</a></div></div>`;
-  let drawn=false;
-  d.addEventListener('toggle',()=>{
-    if(!d.open||drawn) return; drawn=true;
-    const el=d.querySelector('.staff');
-    try{ renderFragStaff(el,rh,Math.floor(t0/384)); }catch(e){ el.innerHTML='<span class="err">譜面の描画に失敗: '+e.message+'</span>'; console.error(e); }
-  });
+  { const el=d.querySelector('.staff');
+    try{ renderFragStaff(el,rh,Math.floor(t0/384),hl); }catch(e){ el.innerHTML='<span class="err">譜面の描画に失敗: '+e.message+'</span>'; console.error(e); } }
   d.querySelector('button').onclick=()=>playItems([...rh,...lh].map(n=>{
     const on=Math.max(n.on,t0), off=n.h==='R'?n.on+n.du:Math.min(n.on+n.du,t1+48);
     return {m:n.p,at:(on-t0)/96,d:Math.max(.1,(off-on)/96)};
@@ -775,7 +772,8 @@ function makeFragCard(f,opt){
     <div class="lhline">左手(実譜・音名のみ): ${[...new Set(lh.map(n=>lab(midiName(n.p))))].join(' → ')||'—'}</div>
     <div class="pt">${f.pt}</div><div class="refs"></div>`;
   const staffEls=card.querySelectorAll('.staff');
-  try{ renderFragStaff(staffEls[staffEls.length-1],rh,bar); }catch(e){ staffEls[staffEls.length-1].innerHTML='<span class="err">譜面の描画に失敗: '+e.message+'</span>'; console.error(e); }
+  const refSpec=(f.refs||[])[0], refPh=refSpec&&PHRASES.find(p=>p.fid===refSpec.id), cm=refPh?cmpMarks(f,refPh,refSpec.mode):null;
+  try{ renderFragStaff(staffEls[staffEls.length-1],rh,bar,cm&&cm.mine); }catch(e){ staffEls[staffEls.length-1].innerHTML='<span class="err">譜面の描画に失敗: '+e.message+'</span>'; console.error(e); }
   stages.forEach((g,i)=>{
     try{ renderSeqStaff(card.querySelector('.st'+i),g.ms,g.tick); }catch(e){ card.querySelector('.st'+i).innerHTML='<span class="err">譜面の描画に失敗: '+e.message+'</span>'; console.error(e); }
     card.querySelector(`.stg button[data-i="${i}"]`).onclick=()=>playItems(g.ms.map((m,k)=>({m,at:k*.5,d:.5})));
@@ -796,7 +794,10 @@ function makeFragCard(f,opt){
     const gap=(w1-w0)/96+2;
     playItems([...ctxItems,...soloItems().map(i=>({...i,at:i.at+gap}))],{base:.14});
   };
-  (f.refs||[]).forEach(r=>{ const rf=PHRASES.find(p=>p.fid===r.id); if(!rf) return; const w=card.querySelector('.refs'); w.appendChild(makeCmpTable(f,rf,r.mode)); w.appendChild(makeRefDetails(rf)); });
+  if(refPh){ const w=card.querySelector('.refs');
+    const lg=document.createElement('div'); lg.className='hlg';
+    lg.innerHTML=`<span class="sw same"></span>同じ音 <span class="sw diff"></span>ちがう音(置きかわり)<small>${refSpec.mode==='set'?'並びは逆向き。使っている音が相手にもあるかを示します':'上の③の譜面と、下の比べる先の譜面で、対応する音の背景に色が付きます'}</small>`;
+    w.appendChild(lg); w.appendChild(makeRefDetails(refPh,cm.other)); }
   return card;
 }
 /* コードごとの「使える音」説明(TL_DEF から自動生成) */
