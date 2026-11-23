@@ -659,6 +659,33 @@ function buildFragSong(f,d){
   memos.sort((a,b)=>a.timing.beat-b.timing.beat);   // 時間順(安定ソート)
   return {title:'丸サ '+f.title,bpm:PT_BPM,notes,memos};
 }
+/* 他のフレーズ(fid)の中身を、折りたたみで見せる(対比の説明用) */
+function phraseBar(f){ return Math.floor((f.a+f.b)/2/4)+2; }
+function makeRefBlock(fid){
+  const f=PHRASES.find(p=>p.fid===fid); if(!f) return document.createElement('span');
+  const t0=Math.round(f.a*96), t1=Math.round(f.b*96);
+  const rh=INTRO_NOTES.filter(n=>n.h==='R'&&n.on>=t0&&n.on<t1);
+  const lh=INTRO_NOTES.filter(n=>n.h==='L'&&n.on<t1&&n.on+n.du>t0);
+  const by=new Map(); rh.slice().sort((x,y)=>x.on-y.on||x.p-y.p).forEach(n=>{ if(!by.has(n.on))by.set(n.on,[]); by.get(n.on).push(n); });
+  const one=n=>{ const r=roleTxt(n.p,n.on); return `<span style="color:${COL[roleOf(n.p,n.on)]}">${lab(midiName(n.p))}${r?`<small>(${r})</small>`:''}</span>`; };
+  const seq=[...by.values()].map(g=>g.length>1?'<span class="chd">('+g.map(one).join(' ')+')</span>':one(g[0])).join(' → ');
+  const d=document.createElement('details'); d.className='ref';
+  const sid='ph'+String(f.fid).padStart(2,'0');
+  d.innerHTML=`<summary>比べる:小節${phraseBar(f)}のフレーズ「${f.title}」</summary>
+    <div class="refbody"><div class="staff"></div><div class="fseq">${seq}</div><div class="refpt">${f.pt}</div>
+    <div class="refbtn"><button class="btn sm">▶ 聴く</button> <a href="#${sid}" class="reflink">このフレーズのステップへ</a></div></div>`;
+  let drawn=false;
+  d.addEventListener('toggle',()=>{
+    if(!d.open||drawn) return; drawn=true;
+    const el=d.querySelector('.staff');
+    try{ renderFragStaff(el,rh,Math.floor(t0/384)); }catch(e){ el.innerHTML='<span class="err">譜面の描画に失敗: '+e.message+'</span>'; console.error(e); }
+  });
+  d.querySelector('button').onclick=()=>playItems([...rh,...lh].map(n=>{
+    const on=Math.max(n.on,t0), off=n.h==='R'?n.on+n.du:Math.min(n.on+n.du,t1+48);
+    return {m:n.p,at:(on-t0)/96,d:Math.max(.1,(off-on)/96)};
+  }));
+  return d;
+}
 function makeFragCard(f,opt){
   opt=opt||{};
   const t0=Math.round(f.a*96), t1=Math.round(f.b*96), bar=Math.floor(t0/384);
@@ -699,7 +726,7 @@ function makeFragCard(f,opt){
     <div class="fseq">${seq}</div>
     ${segs.map(x=>`<div class="fp"><div class="sc">${x.e.sym} のスケール: ${x.e.scaleName}</div><div class="kb">${segKeyboard(x.e,x.sn)}</div></div>`).join('')}
     <div class="lhline">左手(実譜・音名のみ): ${[...new Set(lh.map(n=>lab(midiName(n.p))))].join(' → ')||'—'}</div>
-    <div class="pt">${f.pt}</div>`;
+    <div class="pt">${f.pt}</div><div class="refs"></div>`;
   const staffEls=card.querySelectorAll('.staff');
   try{ renderFragStaff(staffEls[staffEls.length-1],rh,bar); }catch(e){ staffEls[staffEls.length-1].innerHTML='<span class="err">譜面の描画に失敗: '+e.message+'</span>'; console.error(e); }
   stages.forEach((g,i)=>{
@@ -722,6 +749,7 @@ function makeFragCard(f,opt){
     const gap=(w1-w0)/96+2;
     playItems([...ctxItems,...soloItems().map(i=>({...i,at:i.at+gap}))],{base:.14});
   };
+  (f.refs||[]).forEach(id=>card.querySelector('.refs').appendChild(makeRefBlock(id)));
   return card;
 }
 /* コードごとの「使える音」説明(TL_DEF から自動生成) */
@@ -740,7 +768,7 @@ const PHRASES = [
   pt:'ソ#+シ(9+11)の和音のあと、ソ#から ラ・ド#・ミ(♭3・5・♭7)と上がり、ソ#(9th)・シ(11th)で止まる。F#m9 のアルペジオに、頭のソ#(9th)を足した形。最初の4音は32分音符。'},
  {a:5.75,b:8,title:'A13sus:13 → ♭7 → R(+経)→ R → ♭7 → 11 → 5',
   pt:'シ・レ・ファ#・ソ(9・11・13・♭7)の和音から、ファ#(13th)・ソ(♭7)・ラ(R)と上がり、ラの隣のラ#(灰色)をぶつけてから、ラ→ソへ戻る。最後のレ・ミ(11・5)が次の D△9 への橋渡し。3rd(ド#)は弾かない。'},
- {a:8,b:9.75,title:'半音下から入る:(7・9・3)→ 経 → 3 → 5 → 7 → 9',
+ {a:8,b:9.75,refs:[1],title:'半音下から入る:(7・9・3)→ 経 → 3 → 5 → 7 → 9',
   pt:'ド#・ミ・ファ#(7・9・3)の和音のあと、ファ(灰色)から ファ#・ラ・ド#・ミ(3・5・7・9)と上がる。小節2の「ファ#を半音下で飾る」の続きの形。ファ・ファ#・ラは三連符。'},
  {a:9.75,b:11,title:'G#m7:上3音の和音から降りる',
   pt:'シ・レ#・ファ#(♭3・5・♭7)の和音から、ミ(♭13)→ド#(11)→シ(♭3)と降りる。'},
@@ -750,11 +778,11 @@ const PHRASES = [
   pt:'ミ+ソ#(♭7+9th)の和音 → ラ → ラ+レ#(♭3+13th)の和音 → ミ → ド#。レ#(13th)は F#ドリアンの特徴音。'},
  {a:13.75,b:16,title:'A9sus4:和音 → 13 → 5 → (♭7+経)→ 9 → R → 13',
   pt:'ソ・シ・レ・ミ(♭7・9・11・5)の和音のあと、ファ#(13)→ミ(5)→ソ+ド(♭7+灰色)の和音→シ(9)→ラ(R)→ファ#(13)。3rdのド#は弾かない。'},
- {a:16,b:17.75,title:'テンションで始まりテンションで終わる:(9・3・5・7)→ 9 → 3 → 5 → 7 → 9',
+ {a:16,b:17.75,refs:[5],title:'テンションで始まりテンションで終わる:(9・3・5・7)→ 9 → 3 → 5 → 7 → 9',
   pt:'ミ・ファ#・ラ・ド#の和音のあと、ミ(9th)から 3rd・5th・7th と上がって、ミ(9th)で終わる。小節4の「半音下から入る」のファを、ミ(9th)に替えた形。'},
  {a:17.75,b:19.75,title:'C#7alt:ファ・ラ・シ を保って上の音だけ動かす',
   pt:'ファ・ラ・シ(3・♭13・♭7)は同じ指のまま、一番上だけレ(♭9)→ド#(R)に動く。そのあと ファ+ラ#(灰色)→シ→ラ。'},
- {a:19.75,b:22,title:'F#m9:和音 → 降りてくる (♭7+9) → 5 → 11 → ♭3 → 9 → 次のRへ',
+ {a:19.75,b:22,refs:[3],title:'F#m9:和音 → 降りてくる (♭7+9) → 5 → 11 → ♭3 → 9 → 次のRへ',
   pt:'ラ・ド#・シ(♭3・5・11)の和音のあと、ミ+ソ#(♭7+9)から ド#・シ・ラ・ソ#と降りて、ソ#(9th)から最後のラへ。最後のラは、次の A13sus のルート(ベースの A と同時)。小節3の駆け上がりの逆向き。'},
  {a:22,b:23,title:'1拍の16分:13 → ♭7 → 9 → 11',
   pt:'ファ#(13)→ソ(♭7)→シ(9)→レ(11)。16分音符で切れ目なくつなぐ。3rdのド#は弾かず、テンションとミクソリディアンの音だけで作る。'},
@@ -762,7 +790,7 @@ const PHRASES = [
   pt:'ソ・シ・ファ#(♭7・9・13)の和音から、ミ・レ・ミ。次の小節の D△9 につなぐ。'},
  {a:24,b:25.75,title:'コードトーンだけ:7 → R → 3 → 5 → 7 →(R+3+9)',
   pt:'ぜんぶコードトーン。ド#(7th)から、ルート・3rd・5th・7th と1音ずつ上がり、最後に レ+ファ#+ミ(R+3+9)の和音を先取りで入れる。'},
- {a:25.75,b:27,title:'G#m7:上3音の和音 → ♭13 → ♭7 → 経',
+ {a:25.75,b:27,refs:[6],title:'G#m7:上3音の和音 → ♭13 → ♭7 → 経',
   pt:'小節4と同じ和音(シ・レ・ファ#=♭3・5・♭7)から、ミ(♭13)→ファ#(♭7)→ラ(灰色)と、今度は上へ向かう。'},
  {a:27,b:28,title:'C#7:3rd+♭13 の和音 → #9 → ♭9 → 11',
   pt:'ファ(3rd)+ラ(♭13)の和音から、ミ(#9)・レ(♭9)と半音ずつ降りて、低いファ#(11th)へ。'},
