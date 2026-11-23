@@ -710,20 +710,32 @@ function cmpMarks(f,rf,mode){
   }
   return {mine,other};
 }
-function makeRefDetails(rf,hl){
-  const f=rf, t0=Math.round(f.a*96), t1=Math.round(f.b*96);
-  const rh=phraseRH(f);
-  const lh=INTRO_NOTES.filter(n=>n.h==='L'&&n.on<t1&&n.on+n.du>t0);
+/* 1フレーズ分の「見出し + 譜面(背景色つき) + 音の並び」 */
+function makePhraseView(f,hl,title){
+  const t0=Math.round(f.a*96), rh=phraseRH(f);
   const by=new Map(); rh.slice().sort((x,y)=>x.on-y.on||x.p-y.p).forEach(n=>{ if(!by.has(n.on))by.set(n.on,[]); by.get(n.on).push(n); });
   const one=n=>{ const r=roleTxt(n.p,n.on); return `<span style="color:${COL[roleOf(n.p,n.on)]}">${lab(midiName(n.p))}${r?`<small>(${r})</small>`:''}</span>`; };
   const seq=[...by.values()].map(g=>g.length>1?'<span class="chd">('+g.map(one).join(' ')+')</span>':one(g[0])).join(' → ');
-  const d=document.createElement('details'); d.className='ref'; d.open=true;
-  const sid='ph'+String(f.fid).padStart(2,'0');
-  d.innerHTML=`<summary>比べる先:小節${phraseBar(f)}「${f.title.split(':')[0]}」</summary>
-    <div class="refbody"><div class="staff"></div><div class="fseq">${seq}</div><div class="refpt">${f.pt}</div>
-    <div class="refbtn"><button class="btn sm">▶ 聴く</button> <a href="#${sid}" class="reflink">このフレーズのステップへ</a></div></div>`;
-  { const el=d.querySelector('.staff');
-    try{ renderFragStaff(el,rh,Math.floor(t0/384),hl); }catch(e){ el.innerHTML='<span class="err">譜面の描画に失敗: '+e.message+'</span>'; console.error(e); } }
+  const box=document.createElement('div'); box.className='pview';
+  box.innerHTML=`<div class="pvt">${title}</div><div class="staff"></div><div class="fseq">${seq}</div>`;
+  const el=box.querySelector('.staff');
+  try{ renderFragStaff(el,rh,Math.floor(t0/384),hl); }catch(e){ el.innerHTML='<span class="err">譜面の描画に失敗: '+e.message+'</span>'; console.error(e); }
+  return box;
+}
+/* 他のフレーズとの比較(トグル)。このフレーズと比べる先の両方の譜面に、対応する音の背景色を付ける */
+function makeRefDetails(f,rf,cm,mode){
+  const t0=Math.round(rf.a*96), t1=Math.round(rf.b*96);
+  const rh=phraseRH(rf), lh=INTRO_NOTES.filter(n=>n.h==='L'&&n.on<t1&&n.on+n.du>t0);
+  const d=document.createElement('details'); d.className='ref';
+  const sid='ph'+String(rf.fid).padStart(2,'0');
+  d.innerHTML=`<summary>他のフレーズと比べる:小節${phraseBar(rf)}「${rf.title.split(':')[0]}」</summary>
+    <div class="refbody"><div class="hlg"><span class="sw same"></span>同じ音 <span class="sw diff"></span>ちがう音(置きかわり)<small>${mode==='set'?'並びは逆向き。使っている音が相手にもあるかを示します':'対応する音の背景に色が付きます'}</small></div>
+    <div class="pvs"></div>
+    <div class="refpt">${rf.pt}</div>
+    <div class="refbtn"><button class="btn sm">▶ 比べる先を聴く</button> <a href="#${sid}" class="reflink">比べる先のステップへ</a></div></div>`;
+  const pvs=d.querySelector('.pvs');
+  pvs.appendChild(makePhraseView(f,cm.mine,`このフレーズ(小節${phraseBar(f)})`));
+  pvs.appendChild(makePhraseView(rf,cm.other,`比べる先(小節${phraseBar(rf)})`));
   d.querySelector('button').onclick=()=>playItems([...rh,...lh].map(n=>{
     const on=Math.max(n.on,t0), off=n.h==='R'?n.on+n.du:Math.min(n.on+n.du,t1+48);
     return {m:n.p,at:(on-t0)/96,d:Math.max(.1,(off-on)/96)};
@@ -773,7 +785,7 @@ function makeFragCard(f,opt){
     <div class="pt">${f.pt}</div><div class="refs"></div>`;
   const staffEls=card.querySelectorAll('.staff');
   const refSpec=(f.refs||[])[0], refPh=refSpec&&PHRASES.find(p=>p.fid===refSpec.id), cm=refPh?cmpMarks(f,refPh,refSpec.mode):null;
-  try{ renderFragStaff(staffEls[staffEls.length-1],rh,bar,cm&&cm.mine); }catch(e){ staffEls[staffEls.length-1].innerHTML='<span class="err">譜面の描画に失敗: '+e.message+'</span>'; console.error(e); }
+  try{ renderFragStaff(staffEls[staffEls.length-1],rh,bar); }catch(e){ staffEls[staffEls.length-1].innerHTML='<span class="err">譜面の描画に失敗: '+e.message+'</span>'; console.error(e); }
   stages.forEach((g,i)=>{
     try{ renderSeqStaff(card.querySelector('.st'+i),g.ms,g.tick); }catch(e){ card.querySelector('.st'+i).innerHTML='<span class="err">譜面の描画に失敗: '+e.message+'</span>'; console.error(e); }
     card.querySelector(`.stg button[data-i="${i}"]`).onclick=()=>playItems(g.ms.map((m,k)=>({m,at:k*.5,d:.5})));
@@ -794,10 +806,7 @@ function makeFragCard(f,opt){
     const gap=(w1-w0)/96+2;
     playItems([...ctxItems,...soloItems().map(i=>({...i,at:i.at+gap}))],{base:.14});
   };
-  if(refPh){ const w=card.querySelector('.refs');
-    const lg=document.createElement('div'); lg.className='hlg';
-    lg.innerHTML=`<span class="sw same"></span>同じ音 <span class="sw diff"></span>ちがう音(置きかわり)<small>${refSpec.mode==='set'?'並びは逆向き。使っている音が相手にもあるかを示します':'上の③の譜面と、下の比べる先の譜面で、対応する音の背景に色が付きます'}</small>`;
-    w.appendChild(lg); w.appendChild(makeRefDetails(refPh,cm.other)); }
+  if(refPh) card.querySelector('.refs').appendChild(makeRefDetails(f,refPh,cm,refSpec.mode));
   return card;
 }
 /* コードごとの「使える音」説明(TL_DEF から自動生成) */
