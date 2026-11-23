@@ -1070,7 +1070,7 @@ function renderStrip(){
   ];
   const last=[['A/F#','',0.5],['G#/F','',0.5],['G/E','',1],['(休)','',2]];
   const all=[...B,B[0],B[1],B[2],last];
-  document.getElementById('strip').innerHTML=all.map((ch,i)=>`<div class="bar ${i>=4&&i<7?'rep':''}"><div class="no">小節${i+2}${i>=4&&i<7?'(2-4の繰り返し)':''}${i===7?'(平行下降)':''}</div><div class="chs">${ch.map(c=>`<div class="c" style="--w:${c[2]}"><b>${c[0]}</b><i>${c[1]}</i></div>`).join('')}</div></div>`).join('');
+  document.getElementById('strip').innerHTML=all.map((ch,i)=>`<div class="bar ${i>=4&&i<7?'rep':''}"><div class="no">小節${i+2}${i===7?'(平行下降)':''}</div><div class="chs">${ch.map(c=>`<div class="c" style="--w:${c[2]}"><b>${c[0]}</b><i>${c[1]}</i></div>`).join('')}</div></div>`).join('');
 }
 function renderSteps(){
   const prog=loadProg(); const host=document.getElementById('steps'); if(!host){updateProg();return;} host.innerHTML='';
