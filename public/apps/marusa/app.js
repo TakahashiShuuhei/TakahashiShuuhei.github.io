@@ -695,12 +695,13 @@ function alignSlots(A,B){
 }
 /* 対応する音の背景色。{mine: このフレーズ用, other: 比べる先用} それぞれ 音の開始tick → 色 */
 const HL_SAME='rgba(74,222,128,.30)', HL_DIFF='rgba(250,204,21,.38)';
-function cmpMarks(f,rf,mode){
+const HL_GROUPS=['rgba(74,222,128,.32)','rgba(96,165,250,.32)','rgba(244,114,182,.30)','rgba(251,146,60,.32)','rgba(167,139,250,.32)'];
+function cmpMarks(f,rf,spec){
   const A=slotsOf(f), B=slotsOf(rf), mine=new Map(), other=new Map();
-  if(mode==='set'){
-    const pa=new Set(A.flatMap(x=>x.notes.map(n=>n.pc))), pb=new Set(B.flatMap(x=>x.notes.map(n=>n.pc)));
-    const mark=(S,P,M)=>S.forEach(x=>{ const k=x.notes.filter(n=>P.has(n.pc)).length; if(k) M.set(x.on,k===x.notes.length?HL_SAME:HL_DIFF); });
-    mark(A,pb,mine); mark(B,pa,other);
+  if(spec.groups){
+    // 対応を手で指定(並びが逆向きなど、位置合わせでは出ない場合)。同じ色どうしが対応
+    spec.groups.forEach((g,k)=>{ const col=HL_GROUPS[k%HL_GROUPS.length];
+      g.a.forEach(b=>mine.set(Math.round(b*96),col)); g.b.forEach(b=>other.set(Math.round(b*96),col)); });
   }else{
     alignSlots(A,B).forEach(([a,b])=>{
       if(!a||!b) return;
@@ -723,13 +724,13 @@ function makePhraseView(f,hl,title){
   return box;
 }
 /* 他のフレーズとの比較(トグル)。このフレーズと比べる先の両方の譜面に、対応する音の背景色を付ける */
-function makeRefDetails(f,rf,cm,mode){
+function makeRefDetails(f,rf,cm,spec){
   const t0=Math.round(rf.a*96), t1=Math.round(rf.b*96);
   const rh=phraseRH(rf), lh=INTRO_NOTES.filter(n=>n.h==='L'&&n.on<t1&&n.on+n.du>t0);
   const d=document.createElement('details'); d.className='ref';
   const sid='ph'+String(rf.fid).padStart(2,'0');
   d.innerHTML=`<summary>他のフレーズと比べる:小節${phraseBar(rf)}「${rf.title.split(':')[0]}」</summary>
-    <div class="refbody"><div class="hlg"><span class="sw same"></span>同じ音 <span class="sw diff"></span>ちがう音(置きかわり)<small>${mode==='set'?'並びは逆向き。使っている音が相手にもあるかを示します':'対応する音の背景に色が付きます'}</small></div>
+    <div class="refbody"><div class="hlg">${spec.groups?`<span class="sw" style="background:${HL_GROUPS[0]}"></span><span class="sw" style="background:${HL_GROUPS[1]}"></span><span class="sw" style="background:${HL_GROUPS[2]}"></span><span class="sw" style="background:${HL_GROUPS[3]}"></span>同じ色どうしが対応(同じ高さの音を逆の順にたどっている)`:'<span class="sw same"></span>同じ音 <span class="sw diff"></span>ちがう音(置きかわり)<small>対応する音の背景に色が付きます</small>'}</div>
     <div class="pvs"></div>
     <div class="refpt">${rf.pt}</div>
     <div class="refbtn"><button class="btn sm">▶ 比べる先を聴く</button> <a href="#${sid}" class="reflink">比べる先のステップへ</a></div></div>`;
@@ -784,7 +785,7 @@ function makeFragCard(f,opt){
     <div class="lhline">左手(実譜・音名のみ): ${[...new Set(lh.map(n=>lab(midiName(n.p))))].join(' → ')||'—'}</div>
     <div class="pt">${f.pt}</div><div class="refs"></div>`;
   const staffEls=card.querySelectorAll('.staff');
-  const refSpec=(f.refs||[])[0], refPh=refSpec&&PHRASES.find(p=>p.fid===refSpec.id), cm=refPh?cmpMarks(f,refPh,refSpec.mode):null;
+  const refSpec=(f.refs||[])[0], refPh=refSpec&&PHRASES.find(p=>p.fid===refSpec.id), cm=refPh?cmpMarks(f,refPh,refSpec):null;
   try{ renderFragStaff(staffEls[staffEls.length-1],rh,bar); }catch(e){ staffEls[staffEls.length-1].innerHTML='<span class="err">譜面の描画に失敗: '+e.message+'</span>'; console.error(e); }
   stages.forEach((g,i)=>{
     try{ renderSeqStaff(card.querySelector('.st'+i),g.ms,g.tick); }catch(e){ card.querySelector('.st'+i).innerHTML='<span class="err">譜面の描画に失敗: '+e.message+'</span>'; console.error(e); }
@@ -806,7 +807,7 @@ function makeFragCard(f,opt){
     const gap=(w1-w0)/96+2;
     playItems([...ctxItems,...soloItems().map(i=>({...i,at:i.at+gap}))],{base:.14});
   };
-  if(refPh) card.querySelector('.refs').appendChild(makeRefDetails(f,refPh,cm,refSpec.mode));
+  if(refPh) card.querySelector('.refs').appendChild(makeRefDetails(f,refPh,cm,refSpec));
   return card;
 }
 /* コードごとの「使える音」説明(TL_DEF から自動生成) */
@@ -839,7 +840,12 @@ const PHRASES = [
   pt:'ミ・ファ#・ラ・ド#の和音のあと、ミ(9th)から 3rd・5th・7th と上がって、ミ(9th)で終わる。小節4の「半音下から入る」のファを、ミ(9th)に替えた形。'},
  {a:17.75,b:19.75,title:'C#7alt:ファ・ラ・シ を保って上の音だけ動かす',
   pt:'ファ・ラ・シ(3・♭13・♭7)は同じ指のまま、一番上だけレ(♭9)→ド#(R)に動く。そのあと ファ+ラ#(灰色)→シ→ラ。'},
- {a:19.75,b:22,refs:[{id:3,mode:'set'}],title:'F#m9:和音 → 降りてくる (♭7+9) → 5 → 11 → ♭3 → 9 → 次のRへ',
+ {a:19.75,b:22,refs:[{id:3,groups:[
+   {a:[21.5],b:[4.5]},            // ソ#(低): 小節7では最後、小節3では最初
+   {a:[21.25],b:[4.625]},         // ラ(♭3)
+   {a:[20.75],b:[4.75]},          // ド#(5th)
+   {a:[20.5],b:[4.875,5]}         // ミ+ソ#(♭7+9): 小節7は和音、小節3は ミ→ソ# と順に
+ ]}],title:'F#m9:和音 → 降りてくる (♭7+9) → 5 → 11 → ♭3 → 9 → 次のRへ',
   pt:'ラ・ド#・シ(♭3・5・11)の和音のあと、ミ+ソ#(♭7+9)から ド#・シ・ラ・ソ#と降りて、ソ#(9th)から最後のラへ。最後のラは、次の A13sus のルート(ベースの A と同時)。小節3の駆け上がりの逆向き。'},
  {a:22,b:23,title:'1拍の16分:13 → ♭7 → 9 → 11',
   pt:'ファ#(13)→ソ(♭7)→シ(9)→レ(11)。16分音符で切れ目なくつなぐ。3rdのド#は弾かず、テンションとミクソリディアンの音だけで作る。'},
