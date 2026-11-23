@@ -69,10 +69,6 @@ li{margin:2px 0}
 .sbar svg{display:block}
 .bars .kblegend{flex-basis:100%;font-size:12.5px;color:var(--sub);display:flex;gap:6px 16px;flex-wrap:wrap;align-items:center;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:6px 12px}
 .sbar{width:100%}
-.srcline{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px;margin-top:8px}
-.badge{font-size:11px;font-weight:700;padding:1px 9px;border-radius:999px;white-space:nowrap}
-.badge.sc{background:#dcfce7;color:#166534}
-.badge.gen{background:#eef2f7;color:var(--sub)}
 details.grp{margin-top:18px;border-top:1px solid var(--line);padding-top:10px}
 details.grp>summary{font-weight:700;font-size:15px;cursor:pointer;list-style:revert}
 .segs{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;margin-top:10px;border-top:1px dashed var(--line);padding-top:10px}

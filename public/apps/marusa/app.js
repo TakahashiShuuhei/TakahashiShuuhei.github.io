@@ -122,41 +122,6 @@ const SCALE_CARDS = [
   scaleCard('G#エオリアン','G#m7 のとき','G#2','G# A# B C# D# E F#',['G#3','A#3','B3','C#4','D#4','E4','F#4','G#4'],ROLE_G,'Bメジャーと同じ7音を G# から。')
 ];
 
-/* ============ フレーズの「形」を別コードへ移す ============ */
-// d: コードトーン番号→音名 / rl: 表示ラベル / app: 3rdの半音下の接近音 / lo: 右手の最低音の目安(MIDI)
-// app=3rdの半音下 / au=3rdの半音上(どちらもスケール外のことがある=経過音)
-const PH_CHORDS = {
-  'D△9': {sym:'D△9',deg:'Ⅳ△9',bass:'D2',lo:50,d:{R:'D','3':'F#','5':'A','7':'C#','9':'E','11':'G#'},rl:{R:'R','3':'3','5':'5','7':'7','9':'9','11':'#11'},app:'F',au:'G'},
-  'G#m7':{sym:'G#m7(9)',deg:'Ⅶm7',bass:'G#2',lo:50,d:{R:'G#','3':'B','5':'D#','7':'F#','9':'A#','11':'C#'},rl:{R:'R','3':'♭3','5':'5','7':'♭7','9':'9','11':'11'},app:'A#',ar:'9',au:'C'},
-  'F#m9':{sym:'F#m9',deg:'Ⅵm9',bass:'F#2',lo:50,d:{R:'F#','3':'A','5':'C#','7':'E','9':'G#','11':'B'},rl:{R:'R','3':'♭3','5':'5','7':'♭7','9':'9','11':'11'},app:'G#',ar:'9',au:'A#'},
-  'C#7': {sym:'C#7(♭9)',deg:'Ⅲ7',bass:'C#2',lo:58,d:{R:'C#','3':'E#','5':'G#','7':'B','9':'D'},rl:{R:'R','3':'3','5':'5','7':'♭7','9':'♭9'},app:'E',au:'F#'},
-  'A7':  {sym:'A7(9)',deg:'Ⅰ7',bass:'A2',lo:58,d:{R:'A','3':'C#','5':'E','7':'G','9':'B'},rl:{R:'R','3':'3','5':'5','7':'♭7','9':'9'},app:'C',au:'D'}
-};
-const PH_ALL5=['D△9','G#m7','F#m9','C#7','A7'];
-// 最後のステップ用: 実譜の形を別コードへ移す
-const PH_REAL = [
-  {title:'形1「3rd の半音下から入って、3→5→7→9 と駆け上がる」(実譜4小節目の形)',
-   desc:'実譜4小節目(ファ→ファ#→ラ→ド#→ミ)を別のコードに移す。「接近音(灰)→3rd→5th→7th→9th」。5つのコードすべてで自然に響く。',
-   dir:'up',seq:['app','3','5','7','9'],chords:PH_ALL5,
-   note:{'D△9':'実譜4小節目と同じ音。','G#m7':'接近音は 9th のラ#。','F#m9':'接近音は 9th のソ#。','C#7':'接近音はミ(E)。9th は ♭9(レ)になる。','A7':'接近音はド(ナチュラル)。'}}
-];
-const PH_EXT = [
-  {title:'形2「3→5→7→9 と上がって 7→5 と戻る」(往復)',
-   desc:'形1から接近音を外し、上がってからコードトーンで折り返す。「戻る」動きでフレーズに呼吸が生まれる。',
-   dir:'up',seq:['3','5','7','9','7<','5<'],chords:PH_ALL5,
-   note:{}},
-  {title:'形3「3rd を上と下の半音で挟む」(囲い込み)',
-   desc:'3rd の半音上 → 半音下 → 3rd → 5th → 7th。挟む2音はスケール外でも、すぐ 3rd に解決するので気にならない。',
-   dir:'up',seq:['appU','app<','3','5','7'],chords:PH_ALL5,
-   note:{'D△9':'ソ(上)→ファ(下)→ファ#。','G#m7':'ド(上)→ラ#(下)→シ。','F#m9':'ラ#(上)→ソ#(下)→ラ。','C#7':'ファ#(上)→ミ(下)→ファ(E#)。','A7':'レ(上)→ド(下)→ド#。'}}
-];
-/* 各形の元ネタ(intro.json と照合済み)。bars は 0 始まりの小節番号(表示は +2。小節1は全休符) */
-const GEN_TXT='実譜にはない一般的な型(こちらで用意したもの)。';
-const PH_SRC = {
-  '形1':{bars:[2],text:'実譜 小節4(拍8.5〜9.25):ファ→ファ#→ラ→ド#→ミ。'},
-  '形2':{generic:true,text:GEN_TXT},
-  '形3':{generic:true,text:GEN_TXT}
-};
 /* ============ 転回形 ============ */
 // 4和音(ルート・3rd・5th・7th)の並べ替え。一番下の音=lo(MIDI56)以上で最も近い音、残りはその上に積む
 const INV_LABELS=[
@@ -177,7 +142,6 @@ function invGroup(key){
   const C=CH[key]; const names=C.rh.map(n=>n.replace(/\d/,'')).join('・');
   return {kind:'inv',title:`${C.sym}(${C.deg})の転回形`,desc:`構成音: ${names}(ルート・3rd・5th・7th)`,list:buildInversions(key)};
 }
-function phGroup(ph){ return {title:ph.title,desc:ph.desc,src:PH_SRC[ph.title.slice(0,2)],list:ph.chords.map(c=>buildPhrase(ph,c))}; }
 function pitchAt(name,cond){
   const pc=pcOf(name); let m;
   if(cond.below!==undefined){ m=cond.below-1; while(((m%12)+12)%12!==pc) m--; }
@@ -187,18 +151,6 @@ function pitchAt(name,cond){
 function nameOfMidi(name,midi){
   const m=/^([A-G])([#b]?)/.exec(name); const adj=m[2]==='#'?1:m[2]==='b'?-1:0;
   return m[1]+m[2]+(Math.floor((midi-PCN[m[1]]-adj)/12)-1);
-}
-function buildPhrase(ph,cn){
-  const C=PH_CHORDS[cn]; let prev=null; const sn=[],sr=[];
-  ph.seq.forEach(tk0=>{
-    const back=tk0.endsWith('<'), tk=tk0.replace('<','');   // '<' = 直前より下の音を選ぶ
-    const nm=tk==='app'?C.app:tk==='appU'?C.au:C.d[tk];
-    const goDown=back||ph.dir==='down';
-    const midi=prev===null?pitchAt(nm,{min:ph.dir==='down'?C.lo+9:C.lo}):pitchAt(nm,goDown?{below:prev}:{above:prev});
-    prev=midi; sn.push(nameOfMidi(nm,midi));
-    sr.push(tk==='app'?(C.ar||'経'):tk==='appU'?'経':C.rl[tk]);
-  });
-  return {sym:C.sym,deg:C.deg,bass:C.bass,sn,sr,snote:(ph.note&&ph.note[cn])||''};
 }
 
 /* ============ 音 ============ */
@@ -222,9 +174,9 @@ function playItems(items,opt){ // {m, at(拍), d(拍), v(音量の倍率・省�
   const n=Math.max(1,items.length); const v=(opt&&opt.base)||Math.min(.2,.9/Math.sqrt(n)*.5);
   items.forEach(it=>tone(it.m,t0+it.at*spb,it.d*spb,v*(it.v===undefined?1:it.v)));
 }
-function playBars(b0,b1,src){
+function playBars(b0,b1){
   const t0=b0*384,t1=(b1+1)*384;
-  playItems((src||INTRO_NOTES).filter(n=>n.on>=t0&&n.on<t1).map(n=>({m:n.p,at:(n.on-t0)/96,d:n.du/96})));
+  playItems(INTRO_NOTES.filter(n=>n.on>=t0&&n.on<t1).map(n=>({m:n.p,at:(n.on-t0)/96,d:n.du/96})));
 }
 
 /* ============ 鍵盤SVG ============ */
@@ -321,7 +273,7 @@ function renderChordStaff(el,spec){
 
 /* コードカード */
 function makeCard(ch,kind){
-  const spec={pattern:kind==='arp'?'arp':(kind==='scale'||kind==='phrase')?'scale':'block',lh:[],rh:[]};
+  const spec={pattern:kind==='arp'?'arp':kind==='scale'?'scale':'block',lh:[],rh:[]};
   let title=ch.sym,note='';
   const L=(names,roles)=>names.map((n,i)=>({n,role:roles[i],cls:'lh'}));
   const R=(names,roles)=>names.map((n,i)=>({n,role:roles[i],cls:roleCls(roles[i])}));
@@ -334,7 +286,6 @@ function makeCard(ch,kind){
     case 'guide': spec.lh=bass; spec.rh=R(ch.guide,ch.gr); break;
     case 'lh': spec.lh=L(ch.lh,ch.lr); break;
     case 'scale': spec.lh=bass; spec.rh=R(ch.sn,ch.sr); note=ch.snote; break;
-    case 'phrase': spec.lh=bass; spec.rh=R(ch.sn,ch.sr); note=ch.snote; break;
     case 'inv': spec.lh=bass; spec.rh=R(ch.rh,ch.rr); title=ch.sym+' '+ch.ilabel; note=ch.inote; break;
     case 'tension': spec.lh=bass; spec.rh=R(ch.ten.rh,ch.ten.rr); title=ch.ten.sym; note=ch.ten.note; break;
   }
@@ -351,8 +302,6 @@ function makeCard(ch,kind){
     if(kind==='scale'){
       const seq=spec.rh.map(i=>parseN(i.n).midi); const ord=[...seq,...seq.slice(0,-1).reverse()];
       ord.forEach((m,k)=>items.push({m,at:k*.5,d:.5}));
-    } else if(kind==='phrase'){
-      spec.rh.forEach((i,k)=>items.push({m:parseN(i.n).midi,at:k*.5,d:.5}));
     } else if(kind==='arp'){
       const seq=spec.rh.map(i=>parseN(i.n).midi); const n=seq.length; let ord=[];
       for(let i=0;i<n;i++)ord.push(i); for(let i=n-2;i>=(n===4?0:1);i--)ord.push(i);
@@ -373,18 +322,6 @@ function pickDur(pos,rem,align){
 }
 function pushRests(evs,from,to){
   while(from<to){ const d=pickDur(from,to-from,true); if(!d)break; evs.push({pos:from,dur:d[0],s:d[1],dot:d[2],notes:null}); from+=d[0]; }
-}
-/* 簡略版の元データ: 'stab'=右手は和音(同時2音以上)だけ / 'melody'=右手は単音のコードトーン・テンションだけ */
-function srcFor(mode){
-  if(!mode) return INTRO_NOTES;
-  const L=INTRO_NOTES.filter(n=>n.h==='L'), grp=new Map();
-  INTRO_NOTES.filter(n=>n.h==='R').forEach(n=>{ if(!grp.has(n.on))grp.set(n.on,[]); grp.get(n.on).push(n); });
-  const keep=[];
-  grp.forEach(g=>{
-    if(mode==='stab'){ if(g.length>=2) keep.push(...g); }
-    else if(mode==='melody'){ if(g.length===1&&g[0].du>=24&&roleOf(g[0].p,g[0].on)!=='pass') keep.push(g[0]); }
-  });
-  return [...L,...keep];
 }
 function barEvents(hand,bar,src,opt){
   opt=opt||{};
@@ -442,7 +379,7 @@ function buildHand(evs,hand){
 }
 function renderBar(el,bar,opt){
   const {Renderer,Stave,StaveNote,Voice,Formatter,Accidental,Beam,Tuplet,Dot,StaveConnector}=VF;
-  const evR=barEvents('R',bar,opt.src), evL=barEvents('L',bar,opt.src);
+  const evR=barEvents('R',bar), evL=barEvents('L',bar);
   const nEv=Math.max(evR.filter(e=>e.notes).length,evL.filter(e=>e.notes).length,6);
   const W=Math.min(980,Math.max(480,170+nEv*34)), Ht=270;
   const r=new Renderer(el,Renderer.Backends.SVG); r.resize(W,Ht); const ctx=r.getContext();
@@ -532,9 +469,9 @@ function makeBarsView(b0,b1,opt){
     const d=document.createElement('div'); d.className='sbar';
     const chs=TL.filter(e=>e.start>=b*384&&e.start<(b+1)*384).map(e=>e.sym).join(' → ');
     d.innerHTML=`<div class="h"><b>小節${b+2}</b><button class="btn">▶</button><span>${chs}</span></div><div class="sv"></div>`;
-    d.querySelector('button').onclick=()=>playBars(b,b,opt.src);
-    d.querySelector('.h').appendChild(ptButton('bar-'+(b+1)+(opt.srcKey?'-'+opt.srcKey:''),()=>barsSong(b,b,opt.src,opt.srcLabel),'🎹 練習','piano-trainer でこの小節を練習(左右の手の切り替えも可)'));
-    try{ renderBar(d.querySelector('.sv'),b,{first:b0,src:opt.src}); }catch(e){ d.querySelector('.sv').innerHTML='<span class="err">譜面の描画に失敗: '+e.message+'</span>'; console.error(e); }
+    d.querySelector('button').onclick=()=>playBars(b,b);
+    d.querySelector('.h').appendChild(ptButton('bar-'+(b+1),()=>barsSong(b,b),'🎹 練習','piano-trainer でこの小節を練習(左右の手の切り替えも可)'));
+    try{ renderBar(d.querySelector('.sv'),b,{first:b0}); }catch(e){ d.querySelector('.sv').innerHTML='<span class="err">譜面の描画に失敗: '+e.message+'</span>'; console.error(e); }
     if(opt.kb) d.appendChild(segPanels(b));
     box.appendChild(d);
   }
@@ -631,11 +568,11 @@ function chordMemos(w0,w1,toBeat){
   TL.forEach(e=>{ if(e.start>w0&&e.start<w1) out.push({tick:e.start,e}); });
   return out.map(x=>memoOf(toBeat(x.tick),x.e.sym+(x.e.deg?' '+x.e.deg:''),'purple','left'));
 }
-/* 小節 b0〜b1(0始まり)をそのまま。src は簡略版の元データ */
-function barsSong(b0,b1,src,label){
+/* 小節 b0〜b1(0始まり)をそのまま */
+function barsSong(b0,b1){
   const t0=b0*384,t1=(b1+1)*384, toB=t=>(t-t0)/96;
-  const ns=(src||INTRO_NOTES).filter(n=>n.on>=t0&&n.on<t1);
-  return {title:`丸サ イントロ 小節${b0+2}${b1>b0?'-'+(b1+2):''}${label?'('+label+')':''}`,bpm:PT_BPM,
+  const ns=INTRO_NOTES.filter(n=>n.on>=t0&&n.on<t1);
+  return {title:`丸サ イントロ 小節${b0+2}${b1>b0?'-'+(b1+2):''}`,bpm:PT_BPM,
     notes:ns.map(n=>sNote(n.p,toB(n.on),n.du/96,n.h==='L'?'left':'right')),
     memos:chordMemos(t0,t1,toB).sort((a,b)=>a.timing.beat-b.timing.beat)};
 }
@@ -822,11 +759,6 @@ function makeFragCard(f,opt){
   };
   if(refPh) card.querySelector('.refs').appendChild(makeRefDetails(f,refPh,cm,refSpec));
   return card;
-}
-/* コードごとの「使える音」説明(TL_DEF から自動生成) */
-function chordInfoHtml(key){
-  const d=TL_DEF[key]; const nm=(arr)=>arr.map(n=>`${lab(n)}(${d.roles[n]||''})`).join('・');
-  return `<b>${d.sym}</b>(${d.deg}): コードトーン ${nm(d.tones)} / テンション ${nm(d.tens)} / スケール ${d.scale.name}`;
 }
 /* イントロ全体(右手)を、コードの区間ごとに 1拍〜1小節ほどのフレーズに切ったもの(曲の進行順)。
    a,b=拍(0始まり)。title=フレーズの形、pt=成り立ちの解説。 */
@@ -1087,24 +1019,11 @@ function renderSteps(){
     if(s.groups){ s.groups.forEach(g=>{
       const dt=document.createElement('details'); dt.className='grp'; dt.open=true;
       dt.innerHTML=`<summary>${g.title}</summary><p class="small" style="margin:4px 0 0">${g.desc}</p>`;
-      if(g.src){
-        const sl=document.createElement('div'); sl.className='srcline';
-        sl.innerHTML=`<span class="badge ${g.src.generic?'gen':'sc'}">${g.src.generic?'一般的な型':'実譜由来'}</span><span>${g.src.text}</span>`;
-        (g.src.bars||[]).forEach(b=>{ const bt=document.createElement('button'); bt.className='btn'; bt.textContent=`▶ 実譜 小節${b+2}`; bt.onclick=()=>playBars(b,b); sl.appendChild(bt); });
-        dt.appendChild(sl);
-      }
-      const cg=document.createElement('div'); cg.className='cards'; g.list.forEach(o=>cg.appendChild(makeCard(o,g.kind||'phrase'))); dt.appendChild(cg); vis.appendChild(dt);
+      const cg=document.createElement('div'); cg.className='cards'; g.list.forEach(o=>cg.appendChild(makeCard(o,g.kind))); dt.appendChild(cg); vis.appendChild(dt);
     }); }
     if(s.usage){ vis.appendChild(makeUsageBlock(s.usage)); }
     if(s.phrase){ vis.appendChild(makeFragCard(s.phrase,{step:true})); }
-    if(s.bars){ vis.appendChild(makeBarsView(s.bars[0],s.bars[1],{kb:s.kb,src:s.src?srcFor(s.src):null,srcKey:s.src||'',srcLabel:s.src==='stab'?'和音の刻みだけ':s.src==='melody'?'メロの骨格だけ':''})); }
-    if(s.table){
-      const t=document.createElement('div'); t.style.marginTop='14px';
-      t.innerHTML=`<h3>スケール早見表(各コードで使える音の集合)</h3><table><tr><th>コード</th><th>スケール</th></tr>`+
-        Object.values(CH).map(c=>`<tr><td><b>${c.sym}</b> <span class="small">${c.deg}</span></td><td>${c.scale}</td></tr>`).join('')+`</table>
-        <div class="callout">灰色の音はスケール外=半音でつなぐ経過音。意識するのは「どのコードトーンに向かうか」だけ。</div>`;
-      vis.appendChild(t);
-    }
+    if(s.bars){ vis.appendChild(makeBarsView(s.bars[0],s.bars[1],{kb:s.kb})); }
     sec.querySelector('header').onclick=()=>{ sec.classList.toggle('closed'); const p=loadProg(); p['_c_'+s.id]=sec.classList.contains('closed'); saveProg(p); };
     sec.querySelector('input').onchange=(e)=>{ const p=loadProg(); p[s.id]=e.target.checked; saveProg(p); sec.classList.toggle('done',e.target.checked); updateProg(); };
     host.appendChild(sec);
