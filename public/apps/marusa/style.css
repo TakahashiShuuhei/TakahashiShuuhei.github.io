@@ -161,7 +161,7 @@ table.scl td,table.scl th{text-align:center}
 table.scl th:first-child{text-align:left}
 table.scl td.ctc,table.scl th.ctc{background:#eef4ff}
 table.scl td.key{background:#fed7aa;font-weight:700}
-table.scl td.pt{text-align:left;font-size:12px;color:var(--sub)}
+table.scl td.pt{text-align:left;font-size:12.5px;white-space:nowrap}
 table.scl tr.sub th{font-weight:400;color:var(--sub);font-size:12px}
 table.rule small{color:var(--sub)}
 .ctcs{background:#eef4ff;padding:0 4px;border-radius:3px}.keys{background:#fed7aa;padding:0 4px;border-radius:3px}

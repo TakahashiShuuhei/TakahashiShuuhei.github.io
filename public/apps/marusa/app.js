@@ -957,8 +957,8 @@ const cands=req=>SCALE_DEFS.filter(sc=>req.every(r=>sc.semi.includes(r)));
 const scName=sc=>sc.n;
 function scaleChartHtml(){
   const head=['R','9th','3rd','11th','5th','13th','7th'], ct=[0,2,4,6];
-  const rows=SCALE_DEFS.map(sc=>`<tr class="${sc.extra?'ref':''}"><th>${scName(sc)}</th>${sc.semi.map((x,i)=>`<td class="${ct.includes(i)?'ctc':''}${sc.hl.includes(i)?' key':''}">${IVN(i,x)}</td>`).join('')}<td class="pt">${sc.pt}</td></tr>`).join('');
-  return `<div style="overflow-x:auto"><table class="rule scl"><tr><th>スケール</th><th>1度</th><th>2度</th><th>3度</th><th>4度</th><th>5度</th><th>6度</th><th>7度</th><th>ひとこと</th></tr>
+  const rows=SCALE_DEFS.map(sc=>`<tr class="${sc.extra?'ref':''}"><th>${scName(sc)}</th>${sc.semi.map((x,i)=>`<td class="${ct.includes(i)?'ctc':''}${sc.hl.includes(i)?' key':''}">${IVN(i,x)}</td>`).join('')}<td class="pt">${CHORD_TYPES.filter(t=>t.req.every(r=>sc.semi.includes(r))).map(t=>`<b>${t.name}</b>(${ivTxt(t.req)})`).join('<br>')}</td></tr>`).join('');
+  return `<div style="overflow-x:auto"><table class="rule scl"><tr><th>スケール</th><th>1度</th><th>2度</th><th>3度</th><th>4度</th><th>5度</th><th>6度</th><th>7度</th><th>このスケールを候補にするコード<br><small>(コードが必ず含む音)</small></th></tr>
   <tr class="sub"><th>コード上の呼び方</th>${head.map((h,i)=>`<th class="${ct.includes(i)?'ctc':''}">${h}</th>`).join('')}<th></th></tr>${rows}</table></div>
   <p class="small">M=長(メジャー)、m=短(マイナー)、P=完全、♭=半音下、#=半音上。<span class="ctcs">青い列</span>はコードトーン(R・3rd・5th・7th)、<span class="keys">橙の音</span>はそのスケールの特徴音。</p>`;
 }
