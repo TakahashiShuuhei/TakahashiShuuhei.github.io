@@ -791,7 +791,7 @@ function makeFragCard(f,opt){
   card.innerHTML=`<div class="h">${opt.step?'':`<b>${f.title}</b>`}<span class="plays"><button class="btn main-play" title="前後の和音つき(練習する音だけ大きく)→ 休符 → 練習する部分だけ">▶ 前後つき→単独</button><button class="btn solo-play">▶ 単独だけ</button></span></div>
     <div class="fsub">小節${Math.floor((t0+t1)/2/384)+2}(拍${f.a}〜${f.b})・${segs.map(x=>x.e.sym+' '+x.e.deg).join(' → ')}</div>
     ${stageHtml}
-    ${stages.length?'<div class="stl" style="margin-top:8px"><span class="fno">③</span><b>フレーズ(実譜)</b><small>①の音を、②の中から選んで並べるとこうなる</small></div>':''}
+    ${stages.length?'<div class="stl" style="margin-top:8px"><span class="fno">③</span><b>フレーズ(実譜)</b></div>':''}
     <div class="staff"></div>
     <div class="fseq">${seq}</div>
     ${segs.map(x=>`<div class="fp"><div class="sc">${x.e.sym} のスケール: ${x.e.scaleName}</div><div class="kb">${segKeyboard(x.e,x.sn)}</div></div>`).join('')}
