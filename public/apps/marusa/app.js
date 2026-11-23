@@ -1089,7 +1089,7 @@ function renderSteps(){
     const sec=document.createElement('section'); sec.className='step'+(prog[s.id]?' done':'')+(prog['_c_'+s.id]?' closed':''); sec.id=s.id;
     const cols=(s.do||s.think)?`<div class="cols"${s.do&&s.think?'':' style="grid-template-columns:1fr"'}>
         ${s.do?`<div><h3><span class="tag">弾く</span></h3><ul>${s.do.map(x=>`<li>${x}</li>`).join('')}</ul></div>`:''}
-        ${s.think?`<div><h3><span class="tag th">考える</span></h3><ul>${s.think.map(x=>`<li>${x}</li>`).join('')}</ul></div>`:''}
+        ${s.think?`<div>${s.do?'<h3><span class="tag th">考える</span></h3>':''}<ul>${s.think.map(x=>`<li>${x}</li>`).join('')}</ul></div>`:''}
       </div>`:'';
     sec.innerHTML=`<header><div class="num">${i+1}</div><div><h2>${s.title}</h2><div class="goal">${s.goal}</div></div>
       <label class="chk" onclick="event.stopPropagation()"><input type="checkbox" ${prog[s.id]?'checked':''}> できた</label></header>
