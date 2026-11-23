@@ -161,3 +161,23 @@ table.scl td.pt{text-align:left;font-size:12.5px;white-space:nowrap}
 table.scl tr.sub th{font-weight:400;color:var(--sub);font-size:12px}
 table.rule small{color:var(--sub)}
 .ctcs{background:#eef4ff;padding:0 4px;border-radius:3px}.keys{background:#fed7aa;padding:0 4px;border-radius:3px}
+
+table.cmpchart{border-collapse:separate;border-spacing:3px;font-size:12.5px}
+table.cmpchart th{font-weight:600;text-align:center;padding:2px 0;min-width:36px}
+table.cmpchart th.rl{text-align:left;white-space:nowrap;padding-right:10px;min-width:0}
+table.cmpchart th.inkey{color:var(--ink)}
+table.cmpchart th:not(.inkey):not(.rl){color:var(--sub);font-weight:400}
+table.cmpchart td{height:30px;text-align:center;border-radius:5px;position:relative;font-weight:700;border:1px solid transparent}
+table.cmpchart td.kcell{background:#cbd5e1;height:12px}
+table.cmpchart td.kno{height:12px}
+table.cmpchart td.c-ct{background:#bfdbfe;color:#1e3a8a}
+table.cmpchart td.c-ten{background:#fed7aa;color:#9a3412}
+table.cmpchart td.c-sc{background:#e8efff;color:#475569;font-weight:600}
+table.cmpchart td.c-out{background:#f1f5f9;color:#64748b}
+table.cmpchart td.dash{border:1.5px dashed #64748b}
+table.cmpchart i.pl{position:absolute;right:3px;bottom:3px;width:7px;height:7px;border-radius:50%;background:#111}
+.cmpleg{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;font-size:12px;color:var(--sub);margin-top:8px}
+.cmpleg .sw{display:inline-block;width:16px;height:12px;border-radius:3px;vertical-align:middle;margin-right:3px}
+.cmpleg .sw.c-ct{background:#bfdbfe}.cmpleg .sw.c-ten{background:#fed7aa}.cmpleg .sw.c-sc{background:#e8efff}
+.cmpleg .sw.dash{border:1.5px dashed #64748b}.cmpleg .sw.kcell{background:#cbd5e1}
+.cmpleg .pl{display:inline-block;width:8px;height:8px;border-radius:50%;background:#111;margin-right:3px}

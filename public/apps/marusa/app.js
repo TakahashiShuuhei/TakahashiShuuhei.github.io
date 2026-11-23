@@ -907,6 +907,36 @@ function avoidHtml(){
       rows.push(`<tr>${i===0?`<td rowspan="${arr.length}"><b>${tn}</b></td>`:''}<td>${scName(sc)}</td><td>${av.length?av.map(x=>`<b>${SEMI_NAME[x]}</b>(${SEMI_NAME[x-1]}の半音上)`).join('、'):'なし'}</td></tr>`); }); });
   return `<div style="overflow-x:auto"><table class="rule"><tr><th>コード</th><th>候補スケール</th><th>避ける音</th></tr>${rows.join('')}</table></div>`;
 }
+/* 各コードのスケール比較図: 12音(A〜G#)を横に並べ、コードごとにスケール上の音・役割・実譜で使う音を示す */
+const CMP_ROWS=[
+ {syms:['D△7','D△9'],label:'D△7・D△9',scale:'D リディアン'},
+ {syms:['C#7(♭9,♭13)','C#7'],label:'C#7',scale:'C# ミクソ♭9♭13'},
+ {syms:['F#m9','F#m7'],label:'F#m7・F#m9',scale:'F# ドリアン'},
+ {syms:['A13sus4','A9sus4'],label:'A13sus4・A9sus4',scale:'A ミクソリディアン'},
+ {syms:['G#m7'],label:'G#m7',scale:'G# エオリアン'}
+];
+function compareChartHtml(){
+  const NM=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'], order=[9,10,11,0,1,2,3,4,5,6,7,8];   // A から始まる並び
+  const KEY=new Set([9,11,1,2,4,6,8]);   // A メジャー(A B C# D E F# G#)
+  const head=order.map(pc=>`<th class="${KEY.has(pc)?'inkey':''}">${lab(NM[pc])}</th>`).join('');
+  const keyRow=order.map(pc=>`<td class="${KEY.has(pc)?'kcell':'kno'}"></td>`).join('');
+  const rows=CMP_ROWS.map(r=>{
+    const e=TL.find(x=>x.sym===r.syms[0]);
+    const played=new Set(INTRO_NOTES.filter(n=>n.h==='R'&&r.syms.includes(chordAt(n.on).sym)).map(n=>n.p%12));
+    const cells=order.map(pc=>{
+      const ct=e.tp.includes(pc), ten=e.np.includes(pc), sc=e.scaleSet.has(pc), pl=played.has(pc);
+      let cls='', txt='';
+      if(ct){cls='c-ct'; txt=e.rp[pc]||'';} else if(ten){cls='c-ten'; txt=e.rp[pc]||'';} else if(sc){cls='c-sc'; txt=e.rp[pc]||'';}
+      else if(pl){cls='c-out';}
+      if((ct||ten||pl)&&!sc) cls+=' dash';   // スケール外
+      return `<td class="${cls}">${txt}${pl?'<i class="pl"></i>':''}</td>`;
+    }).join('');
+    return `<tr><th class="rl"><b>${r.label}</b><br><small>${r.scale}</small></th>${cells}</tr>`;
+  }).join('');
+  return `<div class="expl"><div style="overflow-x:auto"><table class="cmpchart"><tr><th class="rl"></th>${head}</tr>
+    <tr class="keyrow"><th class="rl"><small>A メジャーの音(キー)</small></th>${keyRow}</tr>${rows}</table></div>
+    <div class="cmpleg"><span class="sw c-ct"></span>コードトーン <span class="sw c-ten"></span>テンション <span class="sw c-sc"></span>スケール上の音 <span class="sw dash"></span>スケール外の音(実譜で使っているもの) <span class="pl"></span>実譜で使っている音 <span class="sw kcell"></span>キーの音</div></div>`;
+}
 const SCALE_STEPS=[
  {id:'sx0',title:'スケールとコードの関係',goal:'スケール = コードトーン4音 + テンション3音',
   html:`<div class="expl">
@@ -954,7 +984,9 @@ const SCALE_STEPS=[
   cards:{kind:'scale',list:[SCALE_CARDS[3]]},usage:['A13sus4','A9sus4']},
  {id:'sx5',title:'G#m7(Ⅶm7)→ G#エオリアン',goal:'短調への ii–V は、♭13(ミ)を含むスケール',
   think:['<b>候補</b>:m7(m3・P5・m7)を含むのは ドリアン・フリジアン・エオリアン。','<b>ドリアンだと…</b>:6度が M6(ミ#)。実譜はミ(m6)を使っているので合わない。<b>フリジアンだと…</b>:m2(ラ)がルートの半音上で避ける音が増える。→ <b>エオリアン</b>(B メジャーの音)。','<b>実譜の外れ音</b>:レ(♭5)とラ(♭9)。ロクリアン寄りの音が一瞬混じる。エオリアンの m6(ミ)は避ける音だが、短く通る。'],
-  cards:{kind:'scale',list:[SCALE_CARDS[4]]},usage:['G#m7']}
+  cards:{kind:'scale',list:[SCALE_CARDS[4]]},usage:['G#m7']},
+ {id:'sx6',title:'各コードのスケールの比較',goal:'コードが変わると、どの音が入れ替わるか',
+  html:compareChartHtml()}
 ];
 STEPS.splice(STEPS.findIndex(s=>s.id==='s7')+1,0,...SCALE_STEPS);
 
@@ -962,7 +994,7 @@ STEPS.splice(STEPS.findIndex(s=>s.id==='s7')+1,0,...SCALE_STEPS);
 const PAGES = [
   {file:'index.html',   title:'はじめに',          desc:'コード進行の地図と、全体の進め方。',ids:[]},
   {file:'p1-chords.html',title:'1. コード編',      desc:'ルート → 4和音 → 転回形 → アルペジオ → つなぎ方 → ガイドトーン → 左手 → テンション。',ids:['s1','s2','inv1','s3','s4','s5','s6','s7']},
-  {file:'p1b-scale.html',title:'2. スケール編',desc:'コードの種類から使えるスケールを選ぶ原則と、この曲のコードごとのスケール。',ids:['sx0','sx0a','sx0b','sx0c','sx1','sx2','sx3','sx4','sx5']},
+  {file:'p1b-scale.html',title:'2. スケール編',desc:'コードの種類から使えるスケールを選ぶ原則と、この曲のコードごとのスケール。',ids:['sx0','sx0a','sx0b','sx0c','sx1','sx2','sx3','sx4','sx5','sx6']},
   {file:'p2-phrase.html',title:'3. フレーズ編(小節2〜5)',desc:'イントロを1〜2拍〜1小節のフレーズに切って、1つずつ「コードトーン → スケール → 実譜」で練習する。',ids:['ph01','ph02','ph03','ph04','ph05','ph06','ph07','ph08','ph09']},
   {file:'p3-score.html', title:'4. フレーズ編(小節6〜9)',desc:'続きのフレーズ(小節6〜9)と、最後に2〜9小節を通す。',ids:['ph10','ph11','ph12','ph13','ph14','ph15','ph16','ph17','ph18','s10']},
 ];
