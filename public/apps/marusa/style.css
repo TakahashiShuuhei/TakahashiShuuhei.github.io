@@ -150,3 +150,9 @@ table.rule th,table.rule td{border:1px solid var(--line);padding:5px 8px;vertica
 table.rule th{background:#f1f5f9}
 table.rule tr.ref td{color:var(--sub)}
 .card.usage{margin-top:12px}
+
+.expl p{margin:8px 0;line-height:1.7}
+.expl ul{margin:6px 0 6px 18px;line-height:1.7}
+.expl h4{margin:16px 0 4px;font-size:14px}
+table.rule th{white-space:nowrap}
+table.rule tr.use td{background:#f0fdf4}
