@@ -783,8 +783,8 @@ function makeFragCard(f,opt){
       if(e.scaleSet.has(pc)) sc.push(m);
     }
     const names=a=>a.map(m=>one({p:m,on:tick})).join(' ');
-    stages.push({no:'①',name:'コードトーン',sub:'この音域のコードトーン(+このフレーズで使うテンション)を上へ',ms:ct,html:names(ct),tick});
-    stages.push({no:'②',name:'スケール',sub:`この音域の ${e.scaleName.replace(/\(.*$/,'')} を上へ`,ms:sc,html:names(sc),tick});
+    stages.push({no:'①',name:'コードトーン',sub:'この音域のコードトーン(+このフレーズで使うテンション)',ms:ct,html:names(ct),tick});
+    stages.push({no:'②',name:'スケール',sub:`この音域の ${e.scaleName.replace(/\(.*$/,'')}`,ms:sc,html:names(sc),tick});
   }
   const stageHtml=stages.map((g,i)=>`<div class="stg"><div class="stl"><span class="fno">${g.no}</span><b>${g.name}</b><small>${g.sub}</small><button class="btn sm" data-i="${i}">▶</button></div><div class="staff st${i}"></div><div class="fseq">${g.html}</div></div>`).join('');
   const card=document.createElement('div'); card.className='card frag';
