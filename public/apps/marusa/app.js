@@ -692,7 +692,7 @@ function makeFragCard(f,opt){
   const stageHtml=stages.map((g,i)=>`<div class="stg"><div class="stl"><span class="fno">${g.no}</span><b>${g.name}</b><small>${g.sub}</small><button class="btn sm" data-i="${i}">▶</button></div><div class="staff st${i}"></div><div class="fseq">${g.html}</div></div>`).join('');
   const card=document.createElement('div'); card.className='card frag';
   card.innerHTML=`<div class="h">${opt.step?'':`<b>${f.title}</b>`}<span class="plays"><button class="btn main-play" title="前後の和音つき(練習する音だけ大きく)→ 休符 → 練習する部分だけ">▶ 前後つき→単独</button><button class="btn solo-play">▶ 単独だけ</button></span></div>
-    <div class="fsub">小節${bar+2}(拍${f.a}〜${f.b})・${segs.map(x=>x.e.sym+' '+x.e.deg).join(' → ')}</div>
+    <div class="fsub">小節${Math.floor((t0+t1)/2/384)+2}(拍${f.a}〜${f.b})・${segs.map(x=>x.e.sym+' '+x.e.deg).join(' → ')}</div>
     ${stageHtml}
     ${stages.length?'<div class="stl" style="margin-top:8px"><span class="fno">③</span><b>フレーズ(実譜)</b><small>①の音を、②の中から選んで並べるとこうなる</small></div>':''}
     <div class="staff"></div>
